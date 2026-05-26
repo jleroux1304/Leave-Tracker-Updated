@@ -1062,6 +1062,7 @@ function importData(event){
       adminLoggedIn = true;
       showAdminApp();
       renderAll();
+      showTab('employees');
       toast('Company imported & saved');
     }catch(err){alert('Could not load file. Please use a valid leave tracker JSON file.');}
   };
@@ -1172,6 +1173,7 @@ function doAdminLogin(){
   adminLoggedIn = true;
   showAdminApp();
   renderAll();
+  showTab('employees');
 }
 
 function doLogout(){
@@ -1332,6 +1334,7 @@ function createCompany(){
   adminLoggedIn = true;
   showAdminApp();
   renderAll();
+  showTab('employees');
 }
 
 function deleteCurrentCompany(){
