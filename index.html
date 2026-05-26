@@ -1044,6 +1044,7 @@ function importData(event){
       currentCompanyName=cname;
       document.getElementById('login-company-name').textContent=cname;
       lsSave();
+      adminLoggedIn = true;
       showAdminApp();
       renderAll();
       toast('Company imported & saved');
@@ -1153,12 +1154,14 @@ function doAdminLogin(){
   }
   errEl.classList.remove('show');
   currentUser = 'admin';
+  adminLoggedIn = true;
   showAdminApp();
   renderAll();
 }
 
 function doLogout(){
   currentUser = null;
+  adminLoggedIn = false;
   document.getElementById('login-emp-password').value = '';
   document.getElementById('login-admin-password').value = '';
   // Return to company selector if companies exist
@@ -1222,6 +1225,7 @@ buildColorPicker();
 // ── localStorage helpers ───────────────────────────────────────────────────
 const LS_INDEX = 'lt_companies';
 let currentCompanyName = null;
+let adminLoggedIn = false;
 
 function lsKey(name){ return 'lt_co_' + name.toLowerCase().replace(/\s+/g,'_'); }
 
@@ -1305,7 +1309,11 @@ function createCompany(){
   adminPassword=pw;
   currentCompanyName=name;
   lsSave();
-  showLoginForm(name);
+  // Auto-login as admin after creating company
+  currentUser = 'admin';
+  adminLoggedIn = true;
+  showAdminApp();
+  renderAll();
 }
 
 function deleteCurrentCompany(){
@@ -1321,7 +1329,7 @@ function deleteCurrentCompany(){
 const _origRenderAll = renderAll;
 function renderAll(){
   _origRenderAll();
-  if(currentCompanyName) lsSave();
+  if(currentCompanyName && adminLoggedIn) lsSave();
 }
 
 // ── Startup ────────────────────────────────────────────────────────────────
