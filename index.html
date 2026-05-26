@@ -636,6 +636,7 @@ function addLeaveType(){
   let id='lt_'+(nextLtId++);
   leaveTypes.push({id,name,days,accrues,forfeits,color:selectedColor});
   document.getElementById('lt-name').value='';
+  lsSave();
   renderLeaveTypes();renderEmployeeTable();refreshCalTypeSelect();
   toast('Leave type added');
 }
@@ -646,6 +647,7 @@ function removeLeaveType(id){
   if(!confirm('Remove "'+lt.name+'"? Logged leave of this type will also be cleared.'))return;
   leaveTypes=leaveTypes.filter(l=>l.id!==id);
   employees.forEach(emp=>{Object.keys(emp.leave).forEach(k=>{if(emp.leave[k]===id)delete emp.leave[k];});});
+  lsSave();
   renderLeaveTypes();renderEmployeeTable();refreshCalTypeSelect();
   toast('Leave type removed');
 }
@@ -683,7 +685,8 @@ function changeAdminPassword(){
   if(pw.length<4){alert('Password must be at least 4 characters.');return;}
   adminPassword=pw;
   document.getElementById('admin-pw-input').value='';
-  toast('Admin password updated — remember to save your data file');
+  lsSave();
+  toast('Admin password updated');
 }
 function removeEmployee(id){
   if(!confirm('Remove this employee and all their leave records?'))return;
@@ -695,16 +698,19 @@ function removeEmployee(id){
 function updateEntitlement(empId,ltId,val){
   let emp=employees.find(e=>e.id===empId);
   if(emp){emp.entitlements=emp.entitlements||{};emp.entitlements[ltId]=parseFloat(val)||0;}
+  lsSave();
 }
 
 function updateStartDate(empId,val){
   let emp=employees.find(e=>e.id===empId);
   if(emp){emp.startDate=val||null;}
+  lsSave();
   renderEmployeeTable();
 }
 function updateEmpPassword(empId,val){
   let emp=employees.find(e=>e.id===empId);
   if(emp){emp.password=val.trim()||null;}
+  lsSave();
 }
 
 function renderEmployeeTable(){
@@ -1010,6 +1016,7 @@ function addHoliday(){
   holidays[y].sort((a,b)=>a.date.localeCompare(b.date));
   activeHolYear=y;
   document.getElementById('hol-name').value='';
+  lsSave();
   renderHolidaysPanel();toast('Holiday added');
 }
 
@@ -1017,6 +1024,7 @@ function removeHoliday(year,idx){
   let list=(holidays[year]||[]).slice().sort((a,b)=>a.date.localeCompare(b.date));
   let h=list[idx];if(!h)return;
   holidays[year]=holidays[year].filter(x=>x.date!==h.date);
+  lsSave();
   renderHolidaysPanel();toast('Holiday removed');
 }
 
@@ -1336,30 +1344,7 @@ function deleteCurrentCompany(){
 }
 
 // ── Auto-save wrapper ──────────────────────────────────────────────────────
-const _origRenderAll = renderAll;
-function renderAll(){
-  _origRenderAll();
-  if(currentCompanyName && adminLoggedIn) lsSave();
-}
-// Direct save hook - bypasses renderAll for extra safety
-function safeSave(){ if(currentCompanyName && adminLoggedIn) lsSave(); }
-
-// ── Startup ────────────────────────────────────────────────────────────────
-(function init(){
-  let companies = lsGetIndex();
-  showLoginScreen();
-  if(companies.length > 0){
-    // Show company selector
-    document.getElementById('create-company-panel').style.display='none';
-    let sel=document.getElementById('company-select');
-    sel.innerHTML=companies.map(c=>`<option value="${c}">${c}</option>`).join('');
-    document.getElementById('company-selector').style.display='';
-  } else {
-    // Show create company form
-    document.getElementById('company-selector').style.display='none';
-    document.getElementById('create-company-panel').style.display='';
-  }
-})();
+)();
 </script>
 </body>
 </html>
