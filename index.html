@@ -1354,8 +1354,21 @@ function deleteCurrentCompany(){
   toast('Company deleted');
 }
 
-// ── Auto-save wrapper ──────────────────────────────────────────────────────
-)();
+
+// ── Startup ────────────────────────────────────────────────────────────────
+(function(){
+  var companies = lsGetIndex();
+  showLoginScreen();
+  if(companies.length > 0){
+    document.getElementById('create-company-panel').style.display='none';
+    var sel=document.getElementById('company-select');
+    sel.innerHTML=companies.map(function(c){return '<option value="'+c+'">'+c+'</option>';}).join('');
+    document.getElementById('company-selector').style.display='';
+  } else {
+    document.getElementById('company-selector').style.display='none';
+    document.getElementById('create-company-panel').style.display='';
+  }
+})();
 </script>
 </body>
 </html>
