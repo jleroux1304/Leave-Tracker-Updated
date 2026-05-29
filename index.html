@@ -332,6 +332,13 @@ tbody tr:hover td{background:var(--bg)}
   </div>
 
   <div class="panel" id="panel-settings">
+    <div class="card" style="border-left:4px solid #EF9F27">
+      <div style="background:#FAEEDA;border-radius:6px;padding:12px;font-size:13px;color:#633806;line-height:1.7">
+        <strong>⚠️ One-time database update required for half-day leave.</strong><br>
+        Run this SQL once in your <strong>Supabase SQL Editor</strong> to enable half-day support:<br>
+        <code style="display:block;margin-top:8px;background:rgba(0,0,0,.08);padding:8px 10px;border-radius:4px;font-size:12px">ALTER TABLE leave_records ADD COLUMN IF NOT EXISTS half_day boolean DEFAULT false;</code>
+      </div>
+    </div>
     <div class="card">
       <div class="card-title">Company settings</div>
       <div style="display:flex;flex-direction:column;gap:14px;max-width:400px">
@@ -480,7 +487,8 @@ function takenByType(empId,y,m,ltId){
   var c=0,d=dim(y,m);
   for(var i=1;i<=d;i++){
     var k=dk(y,m,i);
-    if(leaveRecords.some(function(r){return r.employee_id===empId&&r.date===k&&r.leave_type_id===ltId;}))c++;
+    var rec=leaveRecords.find(function(r){return r.employee_id===empId&&r.date===k&&r.leave_type_id===ltId;});
+    if(rec) c+=(rec.half_day?0.5:1);
   }
   return c;
 }
@@ -804,11 +812,11 @@ function renderCalendar(){
     var lt=rec?leaveTypes.find(function(l){return l.id===rec.leave_type_id;}):null;
     var cls='cal-day';var sty='';
     if(wk)cls+=' weekend';else if(hol)cls+=' holiday';else if(bs)cls+=' before-start';else cls+=' workday';
-    if(lt&&!bs){var c=getColor(lt.color);sty='background:'+c.bg+';border-color:'+c.border+';';}
+    if(lt&&!bs){var c=getColor(lt.color);sty='background:'+(rec.half_day?'linear-gradient(135deg,'+c.bg+' 50%,white 50%)':c.bg)+';border-color:'+c.border+';';}
     var tag='';
     if(hol)tag='<span class="day-tag" style="background:#FAECE7;color:#8B3A1A">'+holName(y,m,dd)+'</span>';
     else if(bs)tag='<span class="day-tag" style="color:#ccc">Before start</span>';
-    else if(lt){var c2=getColor(lt.color);tag='<span class="day-tag" style="background:'+c2.bg+';color:'+c2.text+'">'+lt.name+'</span>';}
+    else if(lt){var c2=getColor(lt.color);tag='<span class="day-tag" style="background:'+c2.bg+';color:'+c2.text+'">'+(rec.half_day?'½ ':'')+lt.name+'</span>';}
     var click=(!wk&&!hol&&!bs)?'data-k="'+k+'" data-empid="'+emp.id+'"':'';
     h+='<div class="'+cls+'" '+click+' style="'+sty+'"><span class="day-num">'+dd+'</span>'+tag+'</div>';
   }
@@ -819,7 +827,8 @@ function renderCalendar(){
   var leg=document.getElementById('cal-legend');
   leg.innerHTML='<div class="leg"><div class="leg-dot" style="background:#F0EFE9"></div>Weekend</div>'
     +'<div class="leg"><div class="leg-dot" style="background:#FAECE7;border-color:#F0997B"></div>Public holiday</div>'
-    +leaveTypes.map(function(lt){var c=getColor(lt.color);return'<div class="leg"><div class="leg-dot" style="background:'+c.bg+';border-color:'+c.border+'"></div>'+lt.name+'</div>';}).join('');
+    +leaveTypes.map(function(lt){var c=getColor(lt.color);return'<div class="leg"><div class="leg-dot" style="background:'+c.bg+';border-color:'+c.border+'"></div>'+lt.name+'</div>';}).join('')
+    +'<div class="leg" style="margin-top:4px;width:100%;color:var(--text3);font-size:11px">Click once = full day · Click again = ½ day · Click again = remove</div>';
 }
 
 async function toggleLeave(empId,dateKey){
@@ -827,15 +836,23 @@ async function toggleLeave(empId,dateKey){
   var existing=leaveRecords.find(function(r){return r.employee_id===empId&&r.date===dateKey;});
   setSaving('Saving...');
   try{
-    if(existing&&existing.leave_type_id===selLtId){
+    if(!existing){
+      // No record -> add full day
+      var r=await sbPost('leave_records',[{employee_id:empId,leave_type_id:selLtId,date:dateKey,half_day:false}]);
+      leaveRecords.push(r[0]);
+    } else if(existing.leave_type_id===selLtId&&!existing.half_day){
+      // Full day same type -> convert to half day
+      await sbPatch('leave_records',{id:existing.id},{half_day:true});
+      existing.half_day=true;
+    } else if(existing.leave_type_id===selLtId&&existing.half_day){
+      // Half day same type -> remove
       await sbDelete('leave_records',{id:existing.id});
       leaveRecords=leaveRecords.filter(function(r){return r.id!==existing.id;});
-    }else if(existing){
-      var r=await sbPatch('leave_records',{id:existing.id},{leave_type_id:selLtId});
+    } else {
+      // Different type -> switch to new type, full day
+      await sbPatch('leave_records',{id:existing.id},{leave_type_id:selLtId,half_day:false});
       existing.leave_type_id=selLtId;
-    }else{
-      var r2=await sbPost('leave_records',[{employee_id:empId,leave_type_id:selLtId,date:dateKey}]);
-      leaveRecords.push(r2[0]);
+      existing.half_day=false;
     }
     renderCalendar();renderEmployees();
     setSaving('✓ Saved');
