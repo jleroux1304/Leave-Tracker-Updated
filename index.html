@@ -141,6 +141,19 @@ tbody tr:hover td{background:var(--bg)}
 .av-bal-type{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px}
 .av-bal-num{font-size:20px;font-weight:600;font-family:'Consolas','Courier New',monospace}
 .av-bal-taken{font-size:11px;color:var(--text3);margin-top:4px}
+.av-cal-section{padding:16px 18px;border-top:1px solid var(--border)}
+.av-cal-section h4{font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;cursor:pointer;display:flex;align-items:center;gap:6px;user-select:none}
+.av-months{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
+.av-month{background:var(--bg);border-radius:var(--radius-sm);padding:12px;border:1px solid var(--border)}
+.av-month-title{font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px}
+.av-mini-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.av-mini-dh{font-size:9px;font-weight:600;text-align:center;color:var(--text3);padding:2px 0;text-transform:uppercase}
+.av-mini-day{min-height:24px;border-radius:3px;font-size:10px;text-align:center;padding:3px 2px;line-height:1.2}
+.av-mini-day.weekend{background:#F0EFE9;color:#9B9890}
+.av-mini-day.holiday{background:#FAECE7;color:#8B3A1A}
+.av-mini-day.leave{font-weight:600}
+.av-mini-day.before-start{color:#ccc}
+.av-mini-day.other{opacity:0}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
@@ -1139,6 +1152,46 @@ function populateAvYears(){
   if(prev&&yrs.indexOf(prev)>=0)sel.value=prev;
 }
 
+function avMiniCalendar(emp, ly){
+  // Build all 12 months of the leave year
+  var months = lyMonths(ly);
+  var html = '<div class="av-months">';
+  months.forEach(function(mo){
+    var y=mo.y, m=mo.m;
+    var d=dim(y,m), fd=new Date(y,m-1,1).getDay();
+    html += '<div class="av-month"><div class="av-month-title">'+MN[m-1]+' '+y+'</div>';
+    html += '<div class="av-mini-grid">';
+    // Day headers
+    ['S','M','T','W','T','F','S'].forEach(function(d){html+='<div class="av-mini-dh">'+d+'</div>';});
+    // Empty cells before first day
+    for(var i=0;i<fd;i++) html+='<div class="av-mini-day other"></div>';
+    // Days
+    for(var dd=1;dd<=d;dd++){
+      var k=dk(y,m,dd);
+      var wk=isWeekend(y,m,dd);
+      var hol=isHoliday(y,m,dd);
+      var bs=emp.start_date&&(new Date(y,m-1,dd)<new Date(emp.start_date));
+      var rec=leaveRecords.find(function(r){return r.employee_id===emp.id&&r.date===k;});
+      var lt=rec?leaveTypes.find(function(l){return l.id===rec.leave_type_id;}):null;
+      var cls='av-mini-day';
+      var sty='';
+      if(wk) cls+=' weekend';
+      else if(hol) cls+=' holiday';
+      else if(bs) cls+=' before-start';
+      else if(lt){
+        cls+=' leave';
+        var c=getColor(lt.color);
+        sty='background:'+c.bg+';color:'+c.text+';border:1px solid '+c.border+';';
+      }
+      var label=dd+(rec&&rec.half_day?'½':'');
+      html+='<div class="'+cls+'" style="'+sty+'" title="'+( hol?holName(y,m,dd):lt?(rec.half_day?'½ ':'')+lt.name:'' )+'">'+label+'</div>';
+    }
+    html+='</div></div>';
+  });
+  html+='</div>';
+  return html;
+}
+
 function renderAccountantView(){
   var ly=parseInt(document.getElementById('av-year-sel').value)||curLeaveYear();
   var grid=document.getElementById('av-grid');
@@ -1156,13 +1209,42 @@ function renderAccountantView(){
         +'<div class="av-bal-taken">Taken: '+taken+' · Entitlement: '+ent+'</div>'
         +'</div>';
     }).join('');
+    var legend=leaveTypes.map(function(lt){
+      var c=getColor(lt.color);
+      return'<div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)">'
+        +'<div style="width:12px;height:12px;border-radius:2px;background:'+c.bg+';border:1px solid '+c.border+'"></div>'+lt.name+'</div>';
+    }).join('');
     return'<div class="av-emp-card">'
       +'<div class="av-emp-hdr">'
-      +'<div><div class="av-emp-name">'+emp.name+'</div><div class="av-emp-sub">Start date: '+started+'</div></div>'
+      +'<div><div class="av-emp-name">'+emp.name+'</div><div class="av-emp-sub">Start date: '+started+' &nbsp;·&nbsp; Leave year: Mar '+ly+' – Feb '+(ly+1)+'</div></div>'
       +'</div>'
       +'<div class="av-balances">'+balCells+'</div>'
+      +'<div class="av-cal-section">'
+      +'<h4 class="av-toggle-cal" data-empid="'+emp.id+'" id="av-arrow-'+emp.id+'">\u25bc Show calendar</h4>'
+      +'<div id="av-cal-'+emp.id+'" style="display:none">'
+      +'<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px">'+legend
+      +'<div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)"><div style="width:12px;height:12px;border-radius:2px;background:#FAECE7;border:1px solid #F0997B"></div>Public holiday</div>'
+      +'<div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)"><div style="width:12px;height:12px;border-radius:2px;background:#F0EFE9;border:1px solid #E2E0D8"></div>Weekend</div>'
+      +'</div>'
+      +avMiniCalendar(emp,ly)
+      +'</div>'
+      +'</div>'
       +'</div>';
   }).join('');
+  // Wire toggle buttons via event delegation
+  grid.querySelectorAll('.av-toggle-cal').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var empId=btn.dataset.empid;
+      var cal=document.getElementById('av-cal-'+empId);
+      if(cal.style.display==='none'){
+        cal.style.display='';
+        btn.textContent='▲ Hide calendar';
+      } else {
+        cal.style.display='none';
+        btn.textContent='▼ Show calendar';
+      }
+    });
+  });
 }
 
 function exportAccountantExcel(){
