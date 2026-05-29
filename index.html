@@ -126,6 +126,21 @@ tbody tr:hover td{background:var(--bg)}
 #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--accent);color:#fff;font-size:13px;font-weight:500;padding:10px 20px;border-radius:99px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:9999}
 #toast.show{opacity:1}
 .saving-indicator{font-size:11px;color:rgba(255,255,255,.6);margin-left:4px}
+#accountant-view{display:none}
+#accountant-view.visible{display:block}
+.av-hdr{background:var(--accent);color:#fff;padding:18px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+.av-hdr h1{font-size:18px;font-weight:600}
+.av-hdr p{font-size:12px;opacity:.7;margin-top:2px}
+.av-main{max-width:1060px;margin:0 auto;padding:20px}
+.av-emp-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:14px;overflow:hidden}
+.av-emp-hdr{background:var(--surface2);padding:12px 18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.av-emp-name{font-size:14px;font-weight:600;color:var(--text)}
+.av-emp-sub{font-size:12px;color:var(--text2)}
+.av-balances{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1px;background:var(--border)}
+.av-bal-cell{background:var(--surface);padding:14px 16px}
+.av-bal-type{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px}
+.av-bal-num{font-size:20px;font-weight:600;font-family:'Consolas','Courier New',monospace}
+.av-bal-taken{font-size:11px;color:var(--text3);margin-top:4px}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
@@ -181,6 +196,7 @@ tbody tr:hover td{background:var(--bg)}
       <div class="ltabs">
         <button class="ltab active" id="ltab-emp">Employee</button>
         <button class="ltab" id="ltab-admin">Admin</button>
+        <button class="ltab" id="ltab-accountant">Accountant</button>
       </div>
       <div id="login-emp-panel">
         <div class="lfield"><label>Your name</label><select id="login-emp-sel"></select></div>
@@ -201,8 +217,32 @@ tbody tr:hover td{background:var(--bg)}
           <button type="button" id="back-to-admin-login-btn" style="width:100%;margin-top:10px;padding:8px;background:transparent;border:none;color:var(--text2);font-family:inherit;font-size:13px;cursor:pointer;text-decoration:underline">← Back</button>
         </div>
       </div>
+      <div id="login-accountant-panel" style="display:none">
+        <div class="lfield"><label>Accountant password</label><input type="password" id="login-accountant-pw" placeholder="Enter accountant password"></div>
+        <button class="lbtn" id="do-accountant-login-btn">Sign in as accountant</button>
+      </div>
       <button class="lbtn sec" id="back-to-cos-btn">← Back to companies</button>
     </div>
+  </div>
+</div>
+
+<div id="accountant-view">
+  <div class="av-hdr">
+    <div>
+      <h1 id="av-co-name">Leave Tracker</h1>
+      <p id="av-sub">View-only access · All employees</p>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <button class="hbtn" id="av-export-btn">↓ Export to Excel</button>
+      <button class="hbtn" id="av-logout-btn">← Sign out</button>
+    </div>
+  </div>
+  <div class="av-main">
+    <div id="av-year-row" style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+      <div class="field"><label style="font-size:12px;font-weight:500;color:var(--text2)">Leave year</label><select id="av-year-sel" style="width:160px"></select></div>
+      <span style="font-size:12px;color:var(--text2);margin-top:18px">View-only — no changes can be made</span>
+    </div>
+    <div id="av-grid"></div>
   </div>
 </div>
 
@@ -356,6 +396,13 @@ tbody tr:hover td{background:var(--bg)}
             <button class="btn sm" id="change-recovery-btn">Update</button>
           </div>
           <span class="hint">Used to reset a forgotten admin password</span>
+        </div>
+        <div class="field"><label>Accountant password</label>
+          <div style="display:flex;gap:8px">
+            <input type="password" id="accountant-pw-setting" placeholder="Set accountant password" style="flex:1">
+            <button class="btn sm" id="change-accountant-pw-btn">Update</button>
+          </div>
+          <span class="hint">Gives read-only access to all employee balances — share with your accountant</span>
         </div>
         <div style="border-top:1px solid var(--border);padding-top:14px">
           <button class="btn danger" id="delete-co-btn">Delete this company</button>
@@ -564,6 +611,7 @@ function curBal(emp,lt){
 function showScreen(name){
   document.getElementById('login-screen').className=(name==='login')?'':'gone';
   document.getElementById('emp-view').className=(name==='empview')?'visible':'';
+  document.getElementById('accountant-view').className=(name==='accountant')?'visible':'';
   document.getElementById('app').className=(name==='app')?'visible':'';
 }
 function showLoginStep(step){
@@ -574,8 +622,10 @@ function showLoginStep(step){
 function showLoginTab(tab){
   document.getElementById('ltab-emp').classList.toggle('active',tab==='emp');
   document.getElementById('ltab-admin').classList.toggle('active',tab==='admin');
+  document.getElementById('ltab-accountant').classList.toggle('active',tab==='accountant');
   document.getElementById('login-emp-panel').style.display=(tab==='emp')?'':'none';
   document.getElementById('login-admin-panel').style.display=(tab==='admin')?'':'none';
+  document.getElementById('login-accountant-panel').style.display=(tab==='accountant')?'':'none';
 }
 function setLoginErr(msg){var e=document.getElementById('login-err');e.textContent=msg;e.className=msg?'lerr show':'lerr';}
 
@@ -970,6 +1020,7 @@ async function addHolidayYear(){
 // ═══════════════════════════════════════════════════
 function renderSettings(){
   document.getElementById('recovery-key-setting').value=currentCompany.recovery_key||'';
+  document.getElementById('accountant-pw-setting').value='';
 }
 
 async function updateCompanyField(field,value){
@@ -1077,6 +1128,88 @@ function exportExcel(){
 }
 
 // ═══════════════════════════════════════════════════
+// ACCOUNTANT VIEW
+// ═══════════════════════════════════════════════════
+function populateAvYears(){
+  var sel=document.getElementById('av-year-sel');
+  var prev=parseInt(sel.value);
+  var ly=curLeaveYear();
+  var yrs=[];for(var y=ly-2;y<=ly+2;y++)yrs.push(y);
+  sel.innerHTML=yrs.map(function(y){return'<option value="'+y+'"'+(y===ly?' selected':'')+'>Mar '+y+' – Feb '+(y+1)+'</option>';}).join('');
+  if(prev&&yrs.indexOf(prev)>=0)sel.value=prev;
+}
+
+function renderAccountantView(){
+  var ly=parseInt(document.getElementById('av-year-sel').value)||curLeaveYear();
+  var grid=document.getElementById('av-grid');
+  if(!employees.length){grid.innerHTML='<div class="empty">No employees found.</div>';return;}
+  grid.innerHTML=employees.map(function(emp){
+    var started=emp.start_date?new Date(emp.start_date).toLocaleDateString('en-ZA'):'—';
+    var balCells=leaveTypes.map(function(lt){
+      var c=getColor(lt.color);
+      var bal=curBal(emp,lt);
+      var taken=totalTakenByType(emp.id,lt.id,ly);
+      var ent=getEntitlement(emp,lt);
+      return'<div class="av-bal-cell">'
+        +'<div class="av-bal-type" style="color:'+c.text+'">'+lt.name+'</div>'
+        +'<div class="av-bal-num" style="color:'+(bal<0?'var(--danger)':bal>0?'var(--accent)':'inherit')+'">'+bal+'</div>'
+        +'<div class="av-bal-taken">Taken: '+taken+' · Entitlement: '+ent+'</div>'
+        +'</div>';
+    }).join('');
+    return'<div class="av-emp-card">'
+      +'<div class="av-emp-hdr">'
+      +'<div><div class="av-emp-name">'+emp.name+'</div><div class="av-emp-sub">Start date: '+started+'</div></div>'
+      +'</div>'
+      +'<div class="av-balances">'+balCells+'</div>'
+      +'</div>';
+  }).join('');
+}
+
+function exportAccountantExcel(){
+  if(typeof XLSX==='undefined'){alert('Excel library not loaded.');return;}
+  var ly=parseInt(document.getElementById('av-year-sel').value)||curLeaveYear();
+  var wb=XLSX.utils.book_new();
+  // Summary sheet - all employees
+  var sumData=[
+    [currentCompany.name+' — Leave Balance Report'],
+    ['Leave year:','1 March '+ly+' – '+(isLeapYear(ly+1)?'29':'28')+' February '+(ly+1)],
+    ['Generated:',new Date().toLocaleDateString('en-ZA')],
+    [],
+    ['Employee','Start date'].concat(leaveTypes.map(function(lt){return lt.name+' (balance)';})).concat(leaveTypes.map(function(lt){return lt.name+' (taken)';}))
+  ];
+  employees.forEach(function(emp){
+    var bals=leaveTypes.map(function(lt){return curBal(emp,lt);});
+    var takens=leaveTypes.map(function(lt){return totalTakenByType(emp.id,lt.id,ly);});
+    sumData.push([emp.name,emp.start_date||''].concat(bals).concat(takens));
+  });
+  var ws=XLSX.utils.aoa_to_sheet(sumData);
+  ws['!cols']=[{wch:24},{wch:14}].concat(leaveTypes.map(function(){return{wch:20};})).concat(leaveTypes.map(function(){return{wch:16};}));
+  XLSX.utils.book_append_sheet(wb,ws,'All Employees');
+  // One sheet per employee
+  employees.forEach(function(emp){
+    var sd=[['Leave year:','1 March '+ly+' – Feb '+(ly+1)],['Employee:',emp.name],[]];
+    leaveTypes.forEach(function(lt){
+      var rows=computeBalances(emp,lt,ly);
+      var ent=getEntitlement(emp,lt);
+      var u=lt.accrues?(ent/12):1;
+      sd.push([lt.name,'Entitlement: '+ent+' days']);
+      sd.push(['Month','Opening','Accrued','Taken','Closing']);
+      rows.forEach(function(r){
+        if(r.started) sd.push([MS[r.m-1]+' '+r.y,fmtBal(r.opening,r.unit),lt.accrues?fmtBal(r.accrued,r.unit):'',r.taken||'',fmtBal(r.closing,r.unit)]);
+      });
+      var taken=rows.reduce(function(s,r){return s+r.taken;},0);
+      sd.push(['Year-end','','',taken,fmtBal(rows[rows.length-1].closing,u)]);
+      sd.push([]);
+    });
+    var ws2=XLSX.utils.aoa_to_sheet(sd);
+    ws2['!cols']=[{wch:14},{wch:14},{wch:12},{wch:10},{wch:14}];
+    XLSX.utils.book_append_sheet(wb,ws2,emp.name.substring(0,28));
+  });
+  XLSX.writeFile(wb,currentCompany.name.replace(/\s+/g,'-').toLowerCase()+'-leave-report-'+ly+'.xlsx');
+  toast('Excel downloaded');
+}
+
+// ═══════════════════════════════════════════════════
 // RENDER ALL
 // ═══════════════════════════════════════════════════
 function renderAll(){
@@ -1140,7 +1273,7 @@ document.addEventListener('DOMContentLoaded', async function(){
     if(!pw||pw.length<4){setLoginErr('Password must be at least 4 characters.');return;}
     if(!rk){setLoginErr('Please enter a recovery key.');return;}
     try{
-      var r=await sbPost('companies',[{name:name,admin_password:pw,recovery_key:rk}]);
+      var r=await sbPost('companies',[{name:name,admin_password:pw,recovery_key:rk,accountant_password:''}]);
       var co=r[0];
       companies.push(co);
       // Add default leave types
@@ -1217,6 +1350,27 @@ document.addEventListener('DOMContentLoaded', async function(){
     sel.innerHTML=companies.map(function(c){return'<option value="'+c.id+'">'+c.name+'</option>';}).join('');
     showScreen('login');showLoginStep(companies.length?'select':'new');setLoginErr('');
   });
+
+  // ── Accountant login ──
+  document.getElementById('ltab-accountant').addEventListener('click',function(){showLoginTab('accountant');setLoginErr('');});
+  document.getElementById('do-accountant-login-btn').addEventListener('click',function(){
+    var pw=document.getElementById('login-accountant-pw').value;
+    if(!currentCompany.accountant_password){setLoginErr('No accountant password has been set for this company. Ask the admin to set one in Settings.');return;}
+    if(pw!==currentCompany.accountant_password){setLoginErr('Incorrect accountant password.');document.getElementById('login-accountant-pw').value='';return;}
+    setLoginErr('');
+    document.getElementById('av-co-name').textContent=currentCompany.name;
+    document.getElementById('av-sub').textContent='View-only access · All employees · '+new Date().getFullYear();
+    populateAvYears();
+    renderAccountantView();
+    showScreen('accountant');
+  });
+  document.getElementById('login-accountant-pw').addEventListener('keydown',function(e){if(e.key==='Enter')document.getElementById('do-accountant-login-btn').click();});
+  document.getElementById('av-logout-btn').addEventListener('click',function(){
+    document.getElementById('login-accountant-pw').value='';
+    showScreen('login');showLoginStep(companies.length?'select':'new');
+  });
+  document.getElementById('av-year-sel').addEventListener('change',renderAccountantView);
+  document.getElementById('av-export-btn').addEventListener('click',exportAccountantExcel);
   document.getElementById('ev-logout-btn').addEventListener('click',function(){
     showScreen('login');showLoginStep(companies.length?'select':'new');
   });
@@ -1258,6 +1412,14 @@ document.addEventListener('DOMContentLoaded', async function(){
     if(!rk){alert('Please enter a recovery key.');return;}
     await updateCompanyField('recovery_key',rk);
     toast('Recovery key updated');
+  });
+  document.getElementById('change-accountant-pw-btn').addEventListener('click',async function(){
+    var pw=document.getElementById('accountant-pw-setting').value.trim();
+    if(!pw){alert('Please enter a password.');return;}
+    if(pw.length<4){alert('Password must be at least 4 characters.');return;}
+    await updateCompanyField('accountant_password',pw);
+    document.getElementById('accountant-pw-setting').value='';
+    toast('Accountant password updated');
   });
   document.getElementById('delete-co-btn').addEventListener('click',async function(){
     if(!confirm('Delete "'+currentCompany.name+'" and ALL its data? This cannot be undone.'))return;
