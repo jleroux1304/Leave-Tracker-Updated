@@ -127,6 +127,7 @@ tbody tr:hover td{background:var(--bg)}
 #toast.show{opacity:1}
 .saving-indicator{font-size:11px;color:rgba(255,255,255,.6);margin-left:4px}
 </style>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -300,6 +301,7 @@ tbody tr:hover td{background:var(--bg)}
           <div class="field"><label>Employee</label><select id="bal-emp-sel" style="width:190px"></select></div>
           <div class="field"><label>Leave year</label><select id="bal-year-sel" style="width:160px"></select></div>
         </div>
+        <button class="btn" id="export-excel-btn" style="background:#1D6A2A;color:#fff;border-color:#1D6A2A">↓ Export to Excel</button>
       </div>
       <div id="bal-sections"></div>
     </div>
@@ -1005,6 +1007,76 @@ function renderEmpView(empId){
 }
 
 // ═══════════════════════════════════════════════════
+// EXCEL EXPORT
+// ═══════════════════════════════════════════════════
+function exportExcel(){
+  if(typeof XLSX==='undefined'){alert('Excel library not loaded. Please check your internet connection.');return;}
+  var emp=employees.find(function(e){return e.id===document.getElementById('bal-emp-sel').value;})||employees[0];
+  if(!emp){alert('No employee selected.');return;}
+  var ly=parseInt(document.getElementById('bal-year-sel').value)||curLeaveYear();
+  var n=new Date(),cy=n.getFullYear(),cm=n.getMonth()+1;
+  var wb=XLSX.utils.book_new();
+  // Summary sheet
+  var sumData=[
+    ['Employee Leave Balance Report'],
+    ['Employee:',emp.name],
+    ['Start date:',emp.start_date||'Not set'],
+    ['Leave year:','1 March '+ly+' – '+(isLeapYear(ly+1)?'29':'28')+' February '+(ly+1)],
+    ['Generated:',new Date().toLocaleDateString('en-ZA')],
+    [],
+    ['Leave Type','Entitlement (days)','Accrual method','Days taken','Current balance','Forfeited at year-end'],
+  ];
+  leaveTypes.forEach(function(lt){
+    var rows=computeBalances(emp,lt,ly);
+    var taken=rows.reduce(function(s,r){return s+r.taken;},0);
+    var fb=+rows[rows.length-1].closing.toFixed(2);
+    var forfeited=lt.forfeits&&fb>0?fb:0;
+    var ent=getEntitlement(emp,lt);
+    var u=lt.accrues?(ent/12):1;
+    sumData.push([lt.name,ent,lt.accrues?'Monthly accrual':'Full grant at year start',taken,+curBal(emp,lt),lt.forfeits?forfeited:'N/A']);
+  });
+  var ws=XLSX.utils.aoa_to_sheet(sumData);
+  ws['!cols']=[{wch:28},{wch:18},{wch:26},{wch:14},{wch:18},{wch:22}];
+  XLSX.utils.book_append_sheet(wb,ws,'Summary');
+  // One sheet per leave type
+  leaveTypes.forEach(function(lt){
+    var ent=getEntitlement(emp,lt);
+    var u=lt.accrues?(ent/12):1;
+    var rows=computeBalances(emp,lt,ly);
+    var sd=[
+      [lt.name+' — '+emp.name],
+      ['Leave year:','1 March '+ly+' – Feb '+(ly+1)],
+      ['Entitlement:',ent+' days'],
+      ['Accrual:',lt.accrues?'Monthly ('+fmtBal(ent/12,u)+'/mo)':'Full grant at year start'],
+      ['Forfeiture:',lt.forfeits?'Unused days forfeited':'Unused days carry over'],
+      [],
+      ['Month','Opening balance','Accrued','Taken','Closing balance','Status'],
+    ];
+    rows.forEach(function(r){
+      var isCur=r.y===cy&&r.m===cm;
+      sd.push([
+        MS[r.m-1]+' '+r.y,
+        r.started?fmtBal(r.opening,r.unit):'',
+        r.started?(lt.accrues?fmtBal(r.accrued,r.unit):''):'',
+        r.started&&r.taken>0?r.taken:'',
+        r.started?fmtBal(r.closing,r.unit):'',
+        !r.started?'Before start date':isCur?'Current month':''
+      ]);
+    });
+    var taken=rows.reduce(function(s,r){return s+r.taken;},0);
+    var fb=fmtBal(rows[rows.length-1].closing,u);
+    sd.push([]);
+    sd.push(['Year-end total','','',taken,fb,lt.forfeits&&fb>0?fb+' days forfeited':'']);
+    var ws2=XLSX.utils.aoa_to_sheet(sd);
+    ws2['!cols']=[{wch:14},{wch:18},{wch:12},{wch:10},{wch:18},{wch:20}];
+    XLSX.utils.book_append_sheet(wb,ws2,lt.name.replace(/[:\\/\?\*\[\]]/g,'').substring(0,28));
+  });
+  var filename='leave-'+emp.name.replace(/\s+/g,'-').toLowerCase()+'-'+ly+'.xlsx';
+  XLSX.writeFile(wb,filename);
+  toast('Excel downloaded');
+}
+
+// ═══════════════════════════════════════════════════
 // RENDER ALL
 // ═══════════════════════════════════════════════════
 function renderAll(){
@@ -1166,6 +1238,8 @@ document.addEventListener('DOMContentLoaded', async function(){
   // ── Balances ──
   document.getElementById('bal-emp-sel').addEventListener('change',renderBalance);
   document.getElementById('bal-year-sel').addEventListener('change',renderBalance);
+  document.getElementById('export-excel-btn').addEventListener('click',exportExcel);
+  document.getElementById('export-excel-btn').addEventListener('click',exportExcel);
 
   // ── Holidays ──
   document.getElementById('add-hol-btn').addEventListener('click',addHoliday);
