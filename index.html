@@ -608,7 +608,7 @@ function computeBalances(emp,lt,ly){
     }
     var closing=+(opening+accrued-taken).toFixed(4);
     rows.push({y:r.y,m:r.m,opening:+opening.toFixed(4),accrued:accrued,taken:taken,closing:closing,started:started,unit:ma||1});
-    opening=Math.max(closing,0);
+    opening=closing; // carry forward negative balances
   });
   return rows;
 }
