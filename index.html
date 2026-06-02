@@ -154,6 +154,14 @@ tbody tr:hover td{background:var(--bg)}
 .av-mini-day.leave{font-weight:600}
 .av-mini-day.before-start{color:#ccc}
 .av-mini-day.other{opacity:0}
+.ob-modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px}
+.ob-modal{background:#fff;border-radius:12px;padding:26px;width:100%;max-width:500px;box-shadow:0 12px 60px rgba(0,0,0,.2);max-height:90vh;overflow-y:auto}
+.ob-modal h3{font-size:16px;font-weight:600;margin-bottom:4px}
+.ob-modal p{font-size:13px;color:var(--text2);margin-bottom:18px;line-height:1.6}
+.ob-row{display:flex;align-items:center;gap:12px;margin-bottom:12px;padding:10px 12px;background:var(--bg);border-radius:var(--radius-sm);border:1px solid var(--border)}
+.ob-lt-name{flex:1;font-size:13px;font-weight:500}
+.ob-input{width:90px;text-align:right;font-family:'Consolas','Courier New',monospace}
+.ob-default{font-size:11px;color:var(--text3);width:80px;text-align:right}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
@@ -426,6 +434,7 @@ tbody tr:hover td{background:var(--bg)}
   </div>
 </div>
 
+<div id="ob-modal-container"></div>
 <div id="toast"></div>
 
 <script>
@@ -515,7 +524,7 @@ const DEFAULT_HOL=[
 // ═══════════════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════════════
-var currentCompany=null, employees=[], leaveTypes=[], holidays=[], leaveRecords=[];
+var currentCompany=null, employees=[], leaveTypes=[], holidays=[], leaveRecords=[], openingBalances=[];
 var calYear, calMonth, activeHolYear, selColor='teal';
 
 // ═══════════════════════════════════════════════════
@@ -565,6 +574,13 @@ function getEntitlement(emp,lt){
   var ent=emp.entitlements&&emp.entitlements[lt.id];
   return ent!==undefined?ent:lt.days_per_year;
 }
+
+function getOpeningBalance(empId,ltId,ly){
+  var ob=openingBalances.find(function(o){
+    return o.employee_id===empId&&o.leave_type_id===ltId&&o.leave_year===ly;
+  });
+  return ob?+ob.balance:null; // null means use default (0)
+}
 function isFirstLY(emp,ly){
   if(!emp.start_date)return false;
   var p=emp.start_date.split('-').map(Number);
@@ -588,8 +604,13 @@ function computeBalances(emp,lt,ly){
   var ent=getEntitlement(emp,lt);
   var ma=lt.accrues?(ent/12):0;
   var isFirst=isFirstLY(emp,ly);
+  // Check for manual opening balance override
+  var manualOpening=getOpeningBalance(emp.id,lt.id,ly);
   var opening=0;
-  if(!lt.accrues){
+  if(manualOpening!==null){
+    // Manual opening balance set by admin
+    opening=manualOpening;
+  } else if(!lt.accrues){
     if(isFirst&&emp.start_date){
       var ms=lyMonths(ly).filter(function(r){return monthOnOrAfterStart(r.y,r.m,emp.start_date);});
       opening=+(ent*(ms.length/12)).toFixed(4);
@@ -667,9 +688,11 @@ async function loadCompanyData(company){
     var r2=await Promise.all([
       sbGet('entitlements','employee_id=in.('+empIds+')'),
       sbGet('leave_records','employee_id=in.('+empIds+')'),
+      sbGet('opening_balances','employee_id=in.('+empIds+')'),
     ]);
     var ents=r2[0];
     leaveRecords=r2[1];
+    openingBalances=r2[2];
     // Attach entitlements to employees
     employees.forEach(function(emp){
       emp.entitlements={};
@@ -677,6 +700,7 @@ async function loadCompanyData(company){
     });
   } else {
     employees.forEach(function(emp){emp.entitlements={};});
+    openingBalances=[];
   }
 }
 
@@ -827,12 +851,13 @@ function renderEmployees(){
       +'<td><input type="date" value="'+(emp.start_date||'')+'" data-empid="'+emp.id+'" class="sd-inp" style="font-size:12px;padding:4px 6px;width:135px"></td>'
       +'<td><input type="text" value="'+(emp.password||'')+'" data-empid="'+emp.id+'" class="pw-inp" placeholder="Set password" style="width:110px;font-size:12px;padding:4px 6px"></td>'
       +ltCols+'<td style="font-size:12px;line-height:1.9">'+bals+'</td>'
-      +'<td><button class="btn sm danger" data-empid="'+emp.id+'">🗑</button></td></tr>';
+      +'<td style="white-space:nowrap"><button class="btn sm" data-ob-empid="'+emp.id+'" style="margin-right:4px">📋 Balances</button><button class="btn sm danger" data-empid="'+emp.id+'">🗑</button></td></tr>';
   }).join('');
   tbody.querySelectorAll('.ent-inp').forEach(function(inp){inp.addEventListener('change',function(){updateEntitlement(inp.dataset.empid,inp.dataset.ltid,inp.value);});});
   tbody.querySelectorAll('.sd-inp').forEach(function(inp){inp.addEventListener('change',function(){updateEmpField(inp.dataset.empid,'start_date',inp.value);});});
   tbody.querySelectorAll('.pw-inp').forEach(function(inp){inp.addEventListener('change',function(){updateEmpField(inp.dataset.empid,'password',inp.value.trim());});});
   tbody.querySelectorAll('button[data-empid]').forEach(function(b){b.addEventListener('click',function(){removeEmployee(b.dataset.empid);});});
+  tbody.querySelectorAll('button[data-ob-empid]').forEach(function(b){b.addEventListener('click',function(){showOpeningBalanceModal(b.dataset.obEmpid);});});
 }
 
 // ═══════════════════════════════════════════════════
@@ -1085,6 +1110,79 @@ function renderEmpView(empId){
       +'</div>'
       +'</div>';
   }).join('');
+}
+
+// ═══════════════════════════════════════════════════
+// OPENING BALANCES
+// ═══════════════════════════════════════════════════
+function showOpeningBalanceModal(empId){
+  var emp=employees.find(function(e){return e.id===empId;});
+  if(!emp)return;
+  var ly=curLeaveYear();
+  var container=document.getElementById('ob-modal-container');
+  var rows=leaveTypes.map(function(lt){
+    var c=getColor(lt.color);
+    var current=getOpeningBalance(empId,lt.id,ly);
+    var defaultVal=lt.accrues?0:(lt.days_per_year);
+    var displayVal=current!==null?current:'';
+    return'<div class="ob-row">'
+      +'<div style="display:flex;align-items:center;gap:8px;flex:1">'
+        +'<div style="width:12px;height:12px;border-radius:3px;background:'+c.bg+';border:1px solid '+c.border+';flex-shrink:0"></div>'
+        +'<span class="ob-lt-name">'+lt.name+'</span>'
+      +'</div>'
+      +'<span class="ob-default">default: '+defaultVal+'</span>'
+      +'<input type="number" step="0.25" class="ob-input" data-ltid="'+lt.id+'" placeholder="'+defaultVal+'" value="'+displayVal+'" style="width:90px;text-align:right;font-family:Consolas,monospace;font-size:13px;padding:5px 8px">'
+      +'</div>';
+  }).join('');
+
+  container.innerHTML='<div class="ob-modal-bg" id="ob-bg">'
+    +'<div class="ob-modal">'
+    +'<h3>Opening balances — '+emp.name+'</h3>'
+    +'<p>Set the opening balance for each leave type at the start of the <strong>'+ly+'/'+( ly+1)+' leave year</strong> (1 March '+ly+'). Leave blank to use the default (0 for accruing types, full entitlement for non-accruing types).</p>'
+    +rows
+    +'<div style="display:flex;gap:10px;margin-top:18px">'
+    +'<button id="ob-save-btn" class="btn primary" style="flex:1">Save opening balances</button>'
+    +'<button id="ob-cancel-btn" class="btn" style="padding:8px 16px">Cancel</button>'
+    +'</div>'
+    +'</div>'
+    +'</div>';
+
+  document.getElementById('ob-cancel-btn').addEventListener('click',function(){container.innerHTML='';});
+  document.getElementById('ob-bg').addEventListener('click',function(e){if(e.target===document.getElementById('ob-bg'))container.innerHTML='';});
+
+  document.getElementById('ob-save-btn').addEventListener('click',async function(){
+    setSaving('Saving...');
+    try{
+      var inputs=container.querySelectorAll('.ob-input');
+      for(var i=0;i<inputs.length;i++){
+        var inp=inputs[i];
+        var ltId=inp.dataset.ltid;
+        var val=inp.value.trim();
+        // Remove existing opening balance for this emp/lt/year
+        openingBalances=openingBalances.filter(function(o){
+          return !(o.employee_id===empId&&o.leave_type_id===ltId&&o.leave_year===ly);
+        });
+        if(val!==''){
+          // Save to Supabase
+          var r=await sbUpsert('opening_balances',
+            {employee_id:empId,leave_type_id:ltId,leave_year:ly,balance:parseFloat(val)},
+            'employee_id,leave_type_id,leave_year');
+          if(r&&r[0])openingBalances.push(r[0]);
+        } else {
+          // Delete from Supabase if blank (use default)
+          try{
+            await fetch(SB_URL+'/rest/v1/opening_balances?employee_id=eq.'+empId+'&leave_type_id=eq.'+ltId+'&leave_year=eq.'+ly,
+              {method:'DELETE',headers:HEADERS});
+          }catch(e2){}
+        }
+      }
+      container.innerHTML='';
+      renderEmployees();
+      if(document.getElementById('panel-balances').classList.contains('active'))renderBalance();
+      setSaving('✓ Saved');
+      toast('Opening balances saved');
+    }catch(e){setSaving('');alert('Error: '+e.message);}
+  });
 }
 
 // ═══════════════════════════════════════════════════
