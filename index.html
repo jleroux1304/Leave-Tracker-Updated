@@ -1096,7 +1096,7 @@ function renderEmpView(empId){
       +'<div class="ev-sub">'+(lt.accrues?'Accrues monthly':'Annual grant')+' · '+ent+' days/year</div>'
       +'<div class="ev-num" style="color:'+(bal<0?'var(--danger)':c.text)+'">'+bal+'</div>'
       +'<div class="ev-unit">accrued balance</div>'
-      +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">'
+      +(lt.accrues?'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">'
         +'<div style="text-align:center">'
           +'<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Entitlement</div>'
           +'<div style="font-size:18px;font-weight:600;font-family:Consolas,monospace">'+ent+'</div>'
@@ -1113,7 +1113,7 @@ function renderEmpView(empId){
           +'<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Ent. + Opening bal. − Taken</div>'
           +'<div style="font-size:20px;font-weight:600;font-family:Consolas,monospace;color:'+(remaining<0?'var(--danger)':'var(--accent)')+'">'+remaining+'</div>'
         +'</div>'
-      +'</div>'
+      +'</div>':'')
       +'</div>';
   }).join('');
 }
