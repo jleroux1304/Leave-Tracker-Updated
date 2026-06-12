@@ -896,7 +896,7 @@ function renderEmployees(){
   var thead=document.getElementById('emp-thead');
   var tbody=document.getElementById('emp-tbody');
   var ly=curLeaveYear();
-  thead.innerHTML='<th>Name</th><th>Start date</th><th>Email</th><th>Password</th>'
+  thead.innerHTML='<th>Name</th><th>Start date</th><th>Employee email</th><th>Manager email</th><th>Password</th>'
     +leaveTypes.map(function(lt){var c=getColor(lt.color);return'<th><span class="lt-pill" style="background:'+c.bg+';color:'+c.text+';border:1px solid '+c.border+';font-size:10px">'+lt.name+'</span><br><span style="font-size:10px;color:var(--text3)">days/yr</span></th>';}).join('')
     +'<th>Balances</th><th></th>';
   if(!employees.length){tbody.innerHTML='<tr><td colspan="'+(leaveTypes.length+5)+'" class="empty">No employees yet.</td></tr>';return;}
@@ -909,7 +909,8 @@ function renderEmployees(){
     return'<tr>'
       +'<td><strong>'+emp.name+'</strong></td>'
       +'<td><input type="date" value="'+(emp.start_date||'')+'" data-empid="'+emp.id+'" class="sd-inp" style="font-size:12px;padding:4px 6px;width:135px"></td>'
-      +'<td><input type="email" value="'+(emp.email||'')+'" data-empid="'+emp.id+'" class="em-inp" placeholder="employee@email.com" style="width:180px;font-size:12px;padding:4px 6px"></td>'
+      +'<td><input type="email" value="'+(emp.email||'')+'" data-empid="'+emp.id+'" class="em-inp" placeholder="employee@email.com" style="width:160px;font-size:12px;padding:4px 6px"></td>'
+      +'<td><input type="email" value="'+(emp.manager_email||'')+'" data-empid="'+emp.id+'" class="mgr-inp" placeholder="manager@email.com" style="width:160px;font-size:12px;padding:4px 6px"></td>'
       +'<td><input type="text" value="'+(emp.password||'')+'" data-empid="'+emp.id+'" class="pw-inp" placeholder="Set password" style="width:110px;font-size:12px;padding:4px 6px"></td>'
       +ltCols+'<td style="font-size:12px;line-height:1.9">'+bals+'</td>'
       +'<td style="white-space:nowrap"><button class="btn sm" data-ob-empid="'+emp.id+'" style="margin-right:4px">📋 Balances</button><button class="btn sm danger" data-empid="'+emp.id+'">🗑</button></td></tr>';
@@ -917,6 +918,7 @@ function renderEmployees(){
   tbody.querySelectorAll('.ent-inp').forEach(function(inp){inp.addEventListener('change',function(){updateEntitlement(inp.dataset.empid,inp.dataset.ltid,inp.value);});});
   tbody.querySelectorAll('.sd-inp').forEach(function(inp){inp.addEventListener('change',function(){updateEmpField(inp.dataset.empid,'start_date',inp.value);});});
   tbody.querySelectorAll('.em-inp').forEach(function(inp){inp.addEventListener('change',function(){updateEmpField(inp.dataset.empid,'email',inp.value.trim());});});
+  tbody.querySelectorAll('.mgr-inp').forEach(function(inp){inp.addEventListener('change',function(){updateEmpField(inp.dataset.empid,'manager_email',inp.value.trim());});});
   tbody.querySelectorAll('.pw-inp').forEach(function(inp){inp.addEventListener('change',function(){updateEmpField(inp.dataset.empid,'password',inp.value.trim());});});
   tbody.querySelectorAll('button[data-empid]').forEach(function(b){b.addEventListener('click',function(){removeEmployee(b.dataset.empid);});});
   tbody.querySelectorAll('button[data-ob-empid]').forEach(function(b){b.addEventListener('click',function(){showOpeningBalanceModal(b.dataset.obEmpid);});});
@@ -1152,7 +1154,7 @@ function renderEmpView(empId){
   document.getElementById('ev-end').onchange=updateEvReqDays;
   // Wire submit button
   document.getElementById('ev-submit-req-btn').onclick=function(){
-    submitLeaveRequest(empId,emp.name,emp.email||null);
+    submitLeaveRequest(empId,emp.name,emp.email||null,emp.manager_email||null);
   };
   // Show previous requests
   renderEmpRequests(empId);
@@ -1540,7 +1542,7 @@ function renderEmpRequests(empId){
     }).join('');
 }
 
-async function submitLeaveRequest(empId, empName, empEmail){
+async function submitLeaveRequest(empId, empName, empEmail, mgrEmail){
   var ltId=document.getElementById('ev-lt-sel').value;
   var start=document.getElementById('ev-start').value;
   var end=document.getElementById('ev-end').value;
@@ -1549,6 +1551,7 @@ async function submitLeaveRequest(empId, empName, empEmail){
   var days=countWorkingDays(start,end);
   if(days===0){alert('No working days selected. Please check dates and public holidays.');return;}
   var lt=leaveTypes.find(function(l){return l.id===ltId;})||{name:'Leave'};
+  if(!mgrEmail){alert('No manager email is set for your profile. Please ask admin to add it.');return;}
   setSaving('Submitting...');
   try{
     var r=await sbPost('leave_requests',[{
@@ -1556,24 +1559,29 @@ async function submitLeaveRequest(empId, empName, empEmail){
       start_date:start, end_date:end, status:'pending'
     }]);
     leaveRequests.unshift(r[0]);
-    // Send email to admin
+    var reqId=r[0].id;
+    // Send email to manager with approve/decline links
     await sendEmail({
       type:'new_request',
       employeeName:empName,
       employeeEmail:empEmail||'',
+      managerEmail:mgrEmail,
+      adminEmail:'jean@hewettwealth.co.za',
       leaveType:lt.name,
       startDate:formatDateNice(start),
       endDate:formatDateNice(end),
       days:days,
       companyName:currentCompany.name,
-      requestId:r[0].id
+      requestId:reqId,
+      supabaseUrl:SB_URL,
+      supabaseKey:SB_KEY
     });
     document.getElementById('ev-start').value='';
     document.getElementById('ev-end').value='';
     document.getElementById('ev-req-days').textContent='';
     renderEmpRequests(empId);
     setSaving('✓ Submitted');
-    toast('Leave request submitted! Admin has been notified.');
+    toast('Leave request submitted! Your manager has been notified.');
   }catch(e){setSaving('');alert('Error submitting request: '+e.message);}
 }
 
@@ -1595,30 +1603,19 @@ function renderRequests(){
     var days=countWorkingDays(r.start_date,r.end_date);
     var reqDate=r.requested_at?new Date(r.requested_at).toLocaleDateString('en-ZA'):'';
     var actions='';
-    if(r.status==='pending'){
-      actions='<button class="btn primary sm" data-action="approve" data-rid="'+r.id+'">✓ Approve</button>'
-        +'<button class="btn sm danger" data-action="reject" data-rid="'+r.id+'" style="margin-left:6px">✗ Reject</button>';
-    } else {
-      actions='<span class="req-status '+r.status+'">'+r.status+'</span>';
-    }
+    actions='<span class="req-status '+r.status+'">'+r.status+'</span>';
     return'<div class="req-card">'
       +'<div class="req-info">'
         +'<div class="req-name">'+emp.name+'</div>'
         +'<div class="req-detail"><span class="lt-pill" style="background:'+c.bg+';color:'+c.text+';border:1px solid '+c.border+'">'+lt.name+'</span></div>'
         +'<div class="req-detail" style="margin-top:6px">'+formatDateNice(r.start_date)+' – '+formatDateNice(r.end_date)+' &nbsp;·&nbsp; <strong>'+days+' working days</strong></div>'
-        +'<div class="req-date">Requested: '+reqDate+'</div>'
+        +'<div class="req-date">Requested: '+reqDate+' &nbsp;·&nbsp; Manager: '+(emp.manager_email||'not set')+'</div>'
       +'</div>'
       +'<div class="req-actions">'+actions+'</div>'
       +'</div>';
   }).join('');
 
-  // Wire approve/reject buttons
-  list.querySelectorAll('button[data-action]').forEach(function(btn){
-    btn.addEventListener('click',function(){
-      if(btn.dataset.action==='approve') approveRequest(btn.dataset.rid);
-      else rejectRequest(btn.dataset.rid);
-    });
-  });
+  // Approval handled via email links - no buttons needed here
 }
 
 async function approveRequest(reqId){
