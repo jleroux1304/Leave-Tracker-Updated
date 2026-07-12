@@ -1572,9 +1572,7 @@ async function submitLeaveRequest(empId, empName, empEmail, mgrEmail){
       endDate:formatDateNice(end),
       days:days,
       companyName:currentCompany.name,
-      requestId:reqId,
-      supabaseUrl:SB_URL,
-      supabaseKey:SB_KEY
+      requestId:reqId
     });
     document.getElementById('ev-start').value='';
     document.getElementById('ev-end').value='';
