@@ -216,13 +216,26 @@ tbody tr:hover td{background:var(--bg)}
       <button class="lbtn sec" id="new-co-show-btn">+ Create new company</button>
     </div>
 
-    <!-- New company -->
+    <!-- New company — master code gate -->
     <div id="step-new" style="display:none">
-      <div class="lfield"><label>Company name</label><input type="text" id="new-co-name" placeholder="e.g. Acme Corp"></div>
-      <div class="lfield"><label>Admin password</label><input type="password" id="new-co-pw" placeholder="Min 4 characters"></div>
-      <div class="lfield"><label>Recovery key <span style="font-weight:400;color:var(--text3)">(for forgotten password)</span></label><input type="text" id="new-co-rk" placeholder="A word or phrase you will remember"></div>
-      <button class="lbtn" id="create-co-btn">Create company</button>
-      <button class="lbtn sec" id="back-to-select-btn">← Back</button>
+      <!-- Step A: master code -->
+      <div id="new-co-gate">
+        <div class="lfield">
+          <label>System access code</label>
+          <input type="password" id="master-code-inp" placeholder="Enter system access code">
+          <span style="font-size:11px;color:var(--text3);margin-top:4px;display:block">Contact the system administrator for this code.</span>
+        </div>
+        <button class="lbtn" id="verify-master-btn">Continue</button>
+        <button class="lbtn sec" id="back-to-select-btn">← Back</button>
+      </div>
+      <!-- Step B: company details (shown after code verified) -->
+      <div id="new-co-form" style="display:none">
+        <div class="lfield"><label>Company name</label><input type="text" id="new-co-name" placeholder="e.g. Acme Corp"></div>
+        <div class="lfield"><label>Admin password</label><input type="password" id="new-co-pw" placeholder="Min 4 characters"></div>
+        <div class="lfield"><label>Recovery key <span style="font-weight:400;color:var(--text3)">(for forgotten password)</span></label><input type="text" id="new-co-rk" placeholder="A word or phrase you will remember"></div>
+        <button class="lbtn" id="create-co-btn">Create company</button>
+        <button class="lbtn sec" id="back-to-gate-btn">← Back</button>
+      </div>
     </div>
 
     <!-- Login form -->
@@ -487,6 +500,7 @@ tbody tr:hover td{background:var(--bg)}
 // SUPABASE CONFIG
 // ═══════════════════════════════════════════════════
 const SB_URL = 'https://tqdbjxadubnjgbagchuw.supabase.co';
+const MASTER_CODE = 'HW@Leave2025'; // Change this to your preferred system access code
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZGJqeGFkdWJuamdiYWdjaHV3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5NjUyMjYsImV4cCI6MjA5NTU0MTIyNn0.FbcKc_zcTq6k9kA6XyzGhRV06RVaQVmn5UHi_rVhJzA';
 const HEADERS = {'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY};
 
@@ -1737,8 +1751,38 @@ document.addEventListener('DOMContentLoaded', async function(){
     }catch(e){alert('Error loading company: '+e.message);}
   });
 
-  document.getElementById('new-co-show-btn').addEventListener('click',function(){showLoginStep('new');setLoginErr('');});
-  document.getElementById('back-to-select-btn').addEventListener('click',function(){showLoginStep(companies.length?'select':'new');setLoginErr('');});
+  document.getElementById('new-co-show-btn').addEventListener('click',function(){
+    showLoginStep('new');
+    document.getElementById('new-co-gate').style.display='';
+    document.getElementById('new-co-form').style.display='none';
+    document.getElementById('master-code-inp').value='';
+    setLoginErr('');
+  });
+
+  document.getElementById('verify-master-btn').addEventListener('click',function(){
+    var code=document.getElementById('master-code-inp').value.trim();
+    if(code!==MASTER_CODE){setLoginErr('Incorrect access code.');document.getElementById('master-code-inp').value='';return;}
+    setLoginErr('');
+    document.getElementById('new-co-gate').style.display='none';
+    document.getElementById('new-co-form').style.display='';
+  });
+  document.getElementById('master-code-inp').addEventListener('keydown',function(e){
+    if(e.key==='Enter')document.getElementById('verify-master-btn').click();
+  });
+
+  document.getElementById('back-to-gate-btn').addEventListener('click',function(){
+    document.getElementById('new-co-form').style.display='none';
+    document.getElementById('new-co-gate').style.display='';
+    setLoginErr('');
+  });
+  document.getElementById('back-to-select-btn').addEventListener('click',function(){
+    showLoginStep(companies.length?'select':'new');
+    if(!companies.length){
+      document.getElementById('new-co-gate').style.display='';
+      document.getElementById('new-co-form').style.display='none';
+    }
+    setLoginErr('');
+  });
   document.getElementById('back-to-cos-btn').addEventListener('click',function(){showLoginStep(companies.length?'select':'new');setLoginErr('');});
 
   // ── Create company ──
