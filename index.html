@@ -154,6 +154,12 @@ tbody tr:hover td{background:var(--bg)}
 .av-mini-day.leave{font-weight:600}
 .av-mini-day.before-start{color:#ccc}
 .av-mini-day.other{opacity:0}
+.av-monthly-table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px}
+.av-monthly-table th{text-align:right;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:var(--text3);padding:6px 8px;border-bottom:1px solid var(--border)}
+.av-monthly-table th:first-child{text-align:left}
+.av-monthly-table td{padding:6px 8px;text-align:right;border-bottom:1px solid var(--border);font-family:'Consolas','Courier New',monospace}
+.av-monthly-table td:first-child{text-align:left;font-family:inherit}
+.av-monthly-table tr:last-child td{border-bottom:none}
 .ob-modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px}
 .ob-modal{background:#fff;border-radius:12px;padding:26px;width:100%;max-width:500px;box-shadow:0 12px 60px rgba(0,0,0,.2);max-height:90vh;overflow-y:auto}
 .ob-modal h3{font-size:16px;font-weight:600;margin-bottom:4px}
@@ -1363,6 +1369,28 @@ function populateAvYears(){
   if(prev&&yrs.indexOf(prev)>=0)sel.value=prev;
 }
 
+function avMonthlyTable(emp, lt, ly){
+  var rows=computeBalances(emp,lt,ly);
+  var n=new Date(),cy=n.getFullYear(),cm=n.getMonth()+1;
+  var c=getColor(lt.color);
+  var html='<div style="margin-bottom:6px"><span class="lt-pill" style="background:'+c.bg+';color:'+c.text+';border:1px solid '+c.border+'">'+lt.name+'</span></div>';
+  html+='<table class="av-monthly-table"><thead><tr><th>Month</th><th>Due at Start</th><th>Leave Taken</th><th>Leave Accrued</th><th>Due at End</th></tr></thead><tbody>';
+  rows.forEach(function(r){
+    var isCur=r.y===cy&&r.m===cm;
+    var ns=!r.started;
+    var due=fmtBal(r.opening,r.unit), taken=r.taken, accr=fmtBal(r.accrued,r.unit), end=fmtBal(r.closing,r.unit);
+    html+='<tr'+(isCur?' style="font-weight:600;background:var(--accent-light)"':'')+(ns?' style="opacity:.4"':'')+'>'
+      +'<td>'+MS[r.m-1]+' '+r.y+(isCur?' <span class="badge current">current</span>':'')+'</td>'
+      +'<td>'+(ns?'—':due)+'</td>'
+      +'<td>'+(ns||taken===0?'—':taken)+'</td>'
+      +'<td>'+(ns?'—':(lt.accrues?accr:(r.opening>0&&r.y===ly&&r.m===3?due:'—')))+'</td>'
+      +'<td style="color:'+(end<0?'var(--danger)':'inherit')+'">'+(ns?'—':end)+'</td>'
+      +'</tr>';
+  });
+  html+='</tbody></table>';
+  return html;
+}
+
 function avMiniCalendar(emp, ly){
   // Build all 12 months of the leave year
   var months = lyMonths(ly);
@@ -1425,11 +1453,16 @@ function renderAccountantView(){
       return'<div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)">'
         +'<div style="width:12px;height:12px;border-radius:2px;background:'+c.bg+';border:1px solid '+c.border+'"></div>'+lt.name+'</div>';
     }).join('');
+    var monthlyTables=leaveTypes.map(function(lt){return avMonthlyTable(emp,lt,ly);}).join('');
     return'<div class="av-emp-card">'
       +'<div class="av-emp-hdr">'
-      +'<div><div class="av-emp-name">'+emp.name+'</div><div class="av-emp-sub">Start date: '+started+' &nbsp;·&nbsp; Leave year: Mar '+ly+' – Feb '+(ly+1)+'</div></div>'
+      +'<div><div class="av-emp-name">'+emp.name+'</div><div class="av-emp-sub">Start date: '+started+' &nbsp;\u00b7&nbsp; Leave year: Mar '+ly+' \u2013 Feb '+(ly+1)+'</div></div>'
       +'</div>'
       +'<div class="av-balances">'+balCells+'</div>'
+      +'<div class="av-cal-section">'
+      +'<h4 class="av-toggle-monthly" data-empid="'+emp.id+'" id="av-marrow-'+emp.id+'">\u25bc Show monthly breakdown</h4>'
+      +'<div id="av-monthly-'+emp.id+'" style="display:none">'+monthlyTables+'</div>'
+      +'</div>'
       +'<div class="av-cal-section">'
       +'<h4 class="av-toggle-cal" data-empid="'+emp.id+'" id="av-arrow-'+emp.id+'">\u25bc Show calendar</h4>'
       +'<div id="av-cal-'+emp.id+'" style="display:none">'
@@ -1453,6 +1486,19 @@ function renderAccountantView(){
       } else {
         cal.style.display='none';
         btn.textContent='▼ Show calendar';
+      }
+    });
+  });
+  grid.querySelectorAll('.av-toggle-monthly').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var empId=btn.dataset.empid;
+      var el=document.getElementById('av-monthly-'+empId);
+      if(el.style.display==='none'){
+        el.style.display='';
+        btn.textContent='▲ Hide monthly breakdown';
+      } else {
+        el.style.display='none';
+        btn.textContent='▼ Show monthly breakdown';
       }
     });
   });
