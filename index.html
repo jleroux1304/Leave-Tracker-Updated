@@ -534,16 +534,6 @@ async function sbDelete(table, match){
   if(!r.ok) throw new Error(await r.text());
   return true;
 }
-async function sendEmail(payload){
-  try{
-    var r=await fetch(SB_URL+'/functions/v1/send-leave-email',{
-      method:'POST',
-      headers:Object.assign({},HEADERS,{'Content-Type':'application/json'}),
-      body:JSON.stringify(payload)
-    });
-    if(!r.ok)console.warn('Email send failed:',await r.text());
-  }catch(e){console.warn('Email error:',e.message);}
-}
 
 async function sbUpsert(table, body, onConflict){
   var r = await fetch(SB_URL+'/rest/v1/'+table+'?on_conflict='+onConflict, {method:'POST', headers:Object.assign({},HEADERS,{'Prefer':'return=representation,resolution=merge-duplicates'}), body:JSON.stringify(body)});
@@ -1620,26 +1610,44 @@ async function submitLeaveRequest(empId, empName, empEmail, mgrEmail){
     }]);
     leaveRequests.unshift(r[0]);
     var reqId=r[0].id;
-    // Send email to manager with approve/decline links
-    await sendEmail({
-      type:'new_request',
-      employeeName:empName,
-      employeeEmail:empEmail||'',
-      managerEmail:mgrEmail,
-      adminEmail:'leave@hewettwealth.co.za',
-      leaveType:lt.name,
-      startDate:formatDateNice(start),
-      endDate:formatDateNice(end),
-      days:days,
-      companyName:currentCompany.name,
-      requestId:reqId
-    });
+
+    // Create two one-time approval tokens directly (no server email needed)
+    var tokRes=await sbPost('approval_tokens',[
+      {request_id:reqId, action:'approve'},
+      {request_id:reqId, action:'decline'}
+    ]);
+    var approveToken=tokRes.find(function(t){return t.action==='approve';}).token;
+    var declineToken=tokRes.find(function(t){return t.action==='decline';}).token;
+    var approveLink=SB_URL+'/functions/v1/send-leave-email?token='+approveToken;
+    var declineLink=SB_URL+'/functions/v1/send-leave-email?token='+declineToken;
+
+    // Build a mailto link that opens the employee's own Outlook
+    var subject='Leave Request \u2014 '+empName;
+    var body=
+      'Hi,\n\n'
+      +empName+' has requested leave. Please review and respond using one of the links below:\n\n'
+      +'Leave type: '+lt.name+'\n'
+      +'From: '+formatDateNice(start)+'\n'
+      +'To: '+formatDateNice(end)+'\n'
+      +'Working days: '+days+'\n\n'
+      +'APPROVE this request:\n'+approveLink+'\n\n'
+      +'DECLINE this request:\n'+declineLink+'\n\n'
+      +'Each link can only be used once and expires in 7 days.\n\n'
+      +'This email contains personal information processed for HR purposes in accordance with POPIA.';
+    var mailto='mailto:'+encodeURIComponent(mgrEmail)
+      +'?subject='+encodeURIComponent(subject)
+      +'&body='+encodeURIComponent(body);
+
     document.getElementById('ev-start').value='';
     document.getElementById('ev-end').value='';
     document.getElementById('ev-req-days').textContent='';
     renderEmpRequests(empId);
-    setSaving('✓ Submitted');
-    toast('Leave request submitted! Your manager has been notified.');
+    setSaving('\u2713 Submitted');
+    toast('Leave request saved! Opening your email to notify your manager\u2026');
+
+    // Open the user's own email client with everything pre-filled
+    window.location.href=mailto;
+
   }catch(e){setSaving('');alert('Error submitting request: '+e.message);}
 }
 
