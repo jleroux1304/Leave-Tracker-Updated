@@ -231,102 +231,35 @@ tbody tr:hover td{background:var(--bg)}
       <!-- Step B: company details (shown after code verified) -->
       <div id="new-co-form" style="display:none">
         <div class="lfield"><label>Company name</label><input type="text" id="new-co-name" placeholder="e.g. Acme Corp"></div>
-        <div class="lfield"><label>Admin password</label><input type="password" id="new-co-pw" placeholder="Min 4 characters"></div>
+        <div class="lfield"><label>Your name</label><input type="text" id="new-co-your-name" placeholder="Your full name"></div>
+        <div class="lfield"><label>Your email</label><input type="email" id="new-co-your-email" placeholder="your@email.com"></div>
+        <div class="lfield"><label>Password</label><input type="password" id="new-co-pw" placeholder="Min 4 characters"></div>
         <div class="lfield"><label>Recovery key <span style="font-weight:400;color:var(--text3)">(for forgotten password)</span></label><input type="text" id="new-co-rk" placeholder="A word or phrase you will remember"></div>
         <button class="lbtn" id="create-co-btn">Create company</button>
         <button class="lbtn sec" id="back-to-gate-btn">← Back</button>
       </div>
     </div>
 
-    <!-- Login form -->
+    <!-- Login form — one login for everyone, roles determine what they see -->
     <div id="step-login" style="display:none">
-      <div class="ltabs">
-        <button class="ltab active" id="ltab-emp">Employee</button>
-        <button class="ltab" id="ltab-admin">Admin</button>
-        <button class="ltab" id="ltab-manager">Manager</button>
-        <button class="ltab" id="ltab-accountant">Accountant</button>
+      <div id="unified-login-form">
+        <div class="lfield"><label>Email</label><input type="email" id="login-email-inp" placeholder="your@email.com"></div>
+        <div class="lfield"><label>Password</label><input type="password" id="login-pw-inp" placeholder="Enter your password"></div>
+        <button class="lbtn" id="do-login-btn">Sign in</button>
+        <button type="button" id="forgot-pw-btn" style="width:100%;margin-top:10px;padding:8px;background:transparent;border:none;color:var(--text2);font-family:inherit;font-size:13px;cursor:pointer;text-decoration:underline">Forgot password?</button>
       </div>
-      <div id="login-emp-panel">
-        <div class="lfield"><label>Your name</label><select id="login-emp-sel"></select></div>
-        <div class="lfield"><label>Password</label><input type="password" id="login-emp-pw" placeholder="Enter your password"></div>
-        <button class="lbtn" id="do-emp-login-btn">Sign in</button>
-      </div>
-      <div id="login-admin-panel" style="display:none">
-        <div id="admin-login-form">
-          <div class="lfield"><label>Admin password</label><input type="password" id="login-admin-pw" placeholder="Enter admin password"></div>
-          <button class="lbtn" id="do-admin-login-btn">Sign in as admin</button>
-          <button type="button" id="forgot-pw-btn" style="width:100%;margin-top:10px;padding:8px;background:transparent;border:none;color:var(--text2);font-family:inherit;font-size:13px;cursor:pointer;text-decoration:underline">Forgot password?</button>
-        </div>
-        <div id="forgot-pw-panel" style="display:none">
-          <div style="background:var(--surface2);border-radius:8px;padding:12px;font-size:13px;color:var(--text2);margin-bottom:14px;line-height:1.7">Enter your recovery key to set a new admin password.</div>
-          <div class="lfield"><label>Recovery key</label><input type="text" id="recovery-key-inp" placeholder="Your recovery key"></div>
-          <div class="lfield"><label>New password</label><input type="password" id="new-pw-inp" placeholder="Min 4 characters"></div>
-          <button class="lbtn" id="do-reset-btn">Reset password</button>
-          <button type="button" id="back-to-admin-login-btn" style="width:100%;margin-top:10px;padding:8px;background:transparent;border:none;color:var(--text2);font-family:inherit;font-size:13px;cursor:pointer;text-decoration:underline">← Back</button>
-        </div>
-      </div>
-      <div id="login-accountant-panel" style="display:none">
-        <div class="lfield"><label>Accountant password</label><input type="password" id="login-accountant-pw" placeholder="Enter accountant password"></div>
-        <button class="lbtn" id="do-accountant-login-btn">Sign in as accountant</button>
-      </div>
-      <div id="login-manager-panel" style="display:none">
-        <div class="lfield"><label>Manager email</label><input type="email" id="login-manager-email" placeholder="your@email.com"></div>
-        <div class="lfield"><label>Password</label><input type="password" id="login-manager-pw" placeholder="Enter your password"></div>
-        <button class="lbtn" id="do-manager-login-btn">Sign in as manager</button>
+      <div id="forgot-pw-panel" style="display:none">
+        <div style="background:var(--surface2);border-radius:8px;padding:12px;font-size:13px;color:var(--text2);margin-bottom:14px;line-height:1.7">Enter your email and the company recovery key to set a new password.</div>
+        <div class="lfield"><label>Email</label><input type="email" id="reset-email-inp" placeholder="your@email.com"></div>
+        <div class="lfield"><label>Recovery key</label><input type="text" id="recovery-key-inp" placeholder="Company recovery key"></div>
+        <div class="lfield"><label>New password</label><input type="password" id="new-pw-inp" placeholder="Min 4 characters"></div>
+        <button class="lbtn" id="do-reset-btn">Reset password</button>
+        <button type="button" id="back-to-login-btn" style="width:100%;margin-top:10px;padding:8px;background:transparent;border:none;color:var(--text2);font-family:inherit;font-size:13px;cursor:pointer;text-decoration:underline">← Back</button>
       </div>
       <button class="lbtn sec" id="back-to-cos-btn">← Back to companies</button>
     </div>
   </div>
 </div>
-
-<div id="accountant-view">
-  <div class="av-hdr">
-    <div>
-      <h1 id="av-co-name">Leave Tracker</h1>
-      <p id="av-sub">View-only access · All employees</p>
-    </div>
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      <button class="hbtn" id="av-export-btn">↓ Export to Excel</button>
-      <button class="hbtn" id="av-logout-btn">← Sign out</button>
-    </div>
-  </div>
-  <div class="av-main">
-    <div id="av-year-row" style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
-      <div class="field"><label style="font-size:12px;font-weight:500;color:var(--text2)">Leave year</label><select id="av-year-sel" style="width:160px"></select></div>
-      <span style="font-size:12px;color:var(--text2);margin-top:18px">View-only — no changes can be made</span>
-    </div>
-    <div id="av-grid"></div>
-  </div>
-</div>
-
-<div id="manager-view">
-  <div class="av-hdr">
-    <div>
-      <h1 id="mgr-co-name">Leave Tracker</h1>
-      <p id="mgr-sub">Manager view · Your team only</p>
-    </div>
-    <button class="hbtn" id="mgr-logout-btn">← Sign out</button>
-  </div>
-  <div class="av-main">
-    <div id="mgr-year-row" style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
-      <div class="field"><label style="font-size:12px;font-weight:500;color:var(--text2)">Leave year</label><select id="mgr-year-sel" style="width:160px"></select></div>
-      <span style="font-size:12px;color:var(--text2);margin-top:18px">View-only — no changes can be made</span>
-    </div>
-    <div id="mgr-grid"></div>
-  </div>
-</div>
-
-<div id="emp-view">
-  <div class="ev-hdr">
-    <div><h1 id="ev-name"></h1><p id="ev-sub"></p></div>
-    <div style="display:flex;gap:8px">
-      <button class="hbtn" id="ev-request-leave-btn" style="background:#fff;color:#2D5A3D">📋 Request Leave</button>
-      <button class="hbtn" id="ev-logout-btn">← Sign out</button>
-    </div>
-  </div>
-  <div class="ev-grid" id="ev-grid"></div>
-</div>
-<div id="req-modal-container"></div>
 
 <div id="app">
   <header>
@@ -342,18 +275,56 @@ tbody tr:hover td{background:var(--bg)}
       <div><h1 id="hdr-co-name">Leave Tracker</h1><p>South Africa · 1 March – 28/29 Feb · Auto-saves to cloud</p></div>
     </div>
     <div class="hdr-btns">
+      <span id="hdr-user-name" style="font-size:12px;opacity:.85;margin-right:6px"></span>
       <span class="saving-indicator" id="save-indicator"></span>
       <button class="hbtn" id="logout-btn">← Logout</button>
     </div>
   </header>
 
   <div class="tabs">
-    <button class="tab active" data-tab="employees">Employees</button>
-    <button class="tab" data-tab="leavetypes">Leave types</button>
-    <button class="tab" data-tab="calendar">Calendar</button>
-    <button class="tab" data-tab="balances">Balances</button>
-    <button class="tab" data-tab="holidays">Public holidays</button>
-    <button class="tab" data-tab="settings">Settings</button>
+    <button class="tab" data-tab="myleave" id="tab-btn-myleave" style="display:none">My Leave</button>
+    <button class="tab" data-tab="myteam" id="tab-btn-myteam" style="display:none">My Team</button>
+    <button class="tab" data-tab="overview" id="tab-btn-overview" style="display:none">Company Overview</button>
+    <button class="tab" data-tab="employees" id="tab-btn-employees" style="display:none">Employees</button>
+    <button class="tab" data-tab="leavetypes" id="tab-btn-leavetypes" style="display:none">Leave types</button>
+    <button class="tab" data-tab="calendar" id="tab-btn-calendar" style="display:none">Calendar</button>
+    <button class="tab" data-tab="balances" id="tab-btn-balances" style="display:none">Balances</button>
+    <button class="tab" data-tab="holidays" id="tab-btn-holidays" style="display:none">Public holidays</button>
+    <button class="tab" data-tab="settings" id="tab-btn-settings" style="display:none">Settings</button>
+  </div>
+
+  <div class="panel" id="panel-myleave">
+    <div style="max-width:900px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+        <div><h2 id="ev-name" style="font-size:16px;font-weight:600"></h2><p id="ev-sub" style="font-size:12px;color:var(--text2)"></p></div>
+        <button class="btn primary" id="ev-request-leave-btn">📋 Request Leave</button>
+      </div>
+      <div class="ev-grid" id="ev-grid"></div>
+    </div>
+  </div>
+
+  <div class="panel" id="panel-myteam">
+    <div class="card">
+      <div class="card-title">My Team</div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+        <div class="field"><label style="font-size:12px;font-weight:500;color:var(--text2)">Leave year</label><select id="mgr-year-sel" style="width:160px"></select></div>
+        <span style="font-size:12px;color:var(--text2);margin-top:18px">View-only — no changes can be made here</span>
+      </div>
+      <div id="mgr-grid"></div>
+    </div>
+  </div>
+
+  <div class="panel" id="panel-overview">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;margin-bottom:16px">
+        <div>
+          <div class="card-title" style="margin-bottom:6px">Company Overview</div>
+          <div class="field"><label style="font-size:12px;font-weight:500;color:var(--text2)">Leave year</label><select id="av-year-sel" style="width:160px"></select></div>
+        </div>
+        <button class="btn" id="av-export-btn" style="background:#1D6A2A;color:#fff;border-color:#1D6A2A">↓ Export to Excel</button>
+      </div>
+      <div id="av-grid"></div>
+    </div>
   </div>
 
   <div class="panel active" id="panel-employees">
@@ -447,17 +418,6 @@ tbody tr:hover td{background:var(--bg)}
   </div>
 
   <div class="panel" id="panel-settings">
-    <div class="card">
-      <div class="card-title">Manager logins</div>
-      <div class="alert">Managers can log in to view balances and calendars for only the employees where their email is set as Manager 1 or Manager 2 (Employees tab).</div>
-      <div class="form-row">
-        <div class="field"><label>Name</label><input type="text" id="mgr-reg-name" placeholder="Manager name" style="width:160px"></div>
-        <div class="field"><label>Email</label><input type="email" id="mgr-reg-email" placeholder="manager@email.com" style="width:200px"></div>
-        <div class="field"><label>Password</label><input type="password" id="mgr-reg-pw" placeholder="Min 4 characters" style="width:160px"></div>
-        <div class="field"><label>&nbsp;</label><button class="btn primary" id="mgr-reg-btn">+ Register manager</button></div>
-      </div>
-      <div class="ovx"><table><thead><tr><th>Name</th><th>Email</th><th></th></tr></thead><tbody id="mgr-tbody"></tbody></table></div>
-    </div>
     <div class="card" style="border-left:4px solid #EF9F27">
       <div style="background:#FAEEDA;border-radius:6px;padding:12px;font-size:13px;color:#633806;line-height:1.7">
         <strong>⚠️ One-time database update required for half-day leave.</strong><br>
@@ -468,25 +428,19 @@ tbody tr:hover td{background:var(--bg)}
     <div class="card">
       <div class="card-title">Company settings</div>
       <div style="display:flex;flex-direction:column;gap:14px;max-width:400px">
-        <div class="field"><label>Admin password</label>
+        <div class="field"><label>My password</label>
           <div style="display:flex;gap:8px">
-            <input type="password" id="admin-pw-inp" placeholder="New admin password" style="flex:1">
-            <button class="btn sm" id="change-admin-pw-btn">Update</button>
+            <input type="password" id="my-pw-inp" placeholder="New password" style="flex:1">
+            <button class="btn sm" id="change-my-pw-btn">Update</button>
           </div>
+          <span class="hint">Changes the password for your own login</span>
         </div>
         <div class="field"><label>Recovery key</label>
           <div style="display:flex;gap:8px">
             <input type="text" id="recovery-key-setting" placeholder="Set a recovery key" style="flex:1">
             <button class="btn sm" id="change-recovery-btn">Update</button>
           </div>
-          <span class="hint">Used to reset a forgotten admin password</span>
-        </div>
-        <div class="field"><label>Accountant password</label>
-          <div style="display:flex;gap:8px">
-            <input type="password" id="accountant-pw-setting" placeholder="Set accountant password" style="flex:1">
-            <button class="btn sm" id="change-accountant-pw-btn">Update</button>
-          </div>
-          <span class="hint">Gives read-only access to all employee balances — share with your accountant</span>
+          <span class="hint">Used by anyone in the company to reset a forgotten password</span>
         </div>
         <div style="border-top:1px solid var(--border);padding-top:14px">
           <button class="btn danger" id="delete-co-btn">Delete this company</button>
@@ -498,6 +452,7 @@ tbody tr:hover td{background:var(--bg)}
 </div>
 
 <div id="ob-modal-container"></div>
+<div id="req-modal-container"></div>
 <div id="toast"></div>
 
 <script>
@@ -589,7 +544,7 @@ const DEFAULT_HOL=[
 // ═══════════════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════════════
-var currentCompany=null, employees=[], leaveTypes=[], holidays=[], leaveRecords=[], openingBalances=[], managers=[], currentManager=null, managerEmployees=[];
+var currentCompany=null, employees=[], leaveTypes=[], holidays=[], leaveRecords=[], openingBalances=[], currentUser=null, managerEmployees=[];
 var calYear, calMonth, activeHolYear, selColor='teal';
 
 // ═══════════════════════════════════════════════════
@@ -712,25 +667,12 @@ function curBal(emp,lt){
 // ═══════════════════════════════════════════════════
 function showScreen(name){
   document.getElementById('login-screen').className=(name==='login')?'':'gone';
-  document.getElementById('emp-view').className=(name==='empview')?'visible':'';
-  document.getElementById('accountant-view').className=(name==='accountant')?'visible':'';
-  document.getElementById('manager-view').className=(name==='manager')?'visible':'';
   document.getElementById('app').className=(name==='app')?'visible':'';
 }
 function showLoginStep(step){
   ['step-select','step-new','step-login'].forEach(function(id){
     document.getElementById(id).style.display=(id==='step-'+step)?'':'none';
   });
-}
-function showLoginTab(tab){
-  document.getElementById('ltab-emp').classList.toggle('active',tab==='emp');
-  document.getElementById('ltab-admin').classList.toggle('active',tab==='admin');
-  document.getElementById('ltab-manager').classList.toggle('active',tab==='manager');
-  document.getElementById('ltab-accountant').classList.toggle('active',tab==='accountant');
-  document.getElementById('login-emp-panel').style.display=(tab==='emp')?'':'none';
-  document.getElementById('login-admin-panel').style.display=(tab==='admin')?'':'none';
-  document.getElementById('login-manager-panel').style.display=(tab==='manager')?'':'none';
-  document.getElementById('login-accountant-panel').style.display=(tab==='accountant')?'':'none';
 }
 function setLoginErr(msg){var e=document.getElementById('login-err');e.textContent=msg;e.className=msg?'lerr show':'lerr';}
 
@@ -745,12 +687,10 @@ async function loadCompanyData(company){
     sbGet('employees','company_id=eq.'+coId+'&order=name.asc'),
     sbGet('leave_types','company_id=eq.'+coId+'&order=sort_order.asc'),
     sbGet('public_holidays','company_id=eq.'+coId+'&order=date.asc'),
-    sbGet('managers','company_id=eq.'+coId+'&order=name.asc'),
   ]);
   employees=results[0];
   leaveTypes=results[1];
   holidays=results[2];
-  managers=results[3];
   leaveRecords=[];
   // Load entitlements and leave records using actual employee IDs
   if(employees.length){
@@ -786,6 +726,9 @@ function showTab(name){
   if(name==='leavetypes')renderLeaveTypes();
   if(name==='employees')renderEmployees();
   if(name==='settings')renderSettings();
+  if(name==='myleave')renderEmpView(currentUser.id);
+  if(name==='myteam'){populateMgrYears();renderManagerView();}
+  if(name==='overview'){populateAvYears();renderAccountantView();}
 }
 
 // ═══════════════════════════════════════════════════
@@ -882,11 +825,12 @@ async function removeEmployee(id){
 }
 
 async function updateEmpField(empId, field, value){
+  var v = (typeof value === 'boolean') ? value : (value || null);
   setSaving('Saving...');
   try{
-    await sbPatch('employees',{id:empId},{[field]:value||null});
+    await sbPatch('employees',{id:empId},{[field]:v});
     var emp=employees.find(function(e){return e.id===empId;});
-    if(emp)emp[field]=value||null;
+    if(emp)emp[field]=v;
     setSaving('✓ Saved');
   }catch(e){setSaving('');alert('Error: '+e.message);}
 }
@@ -906,10 +850,10 @@ function renderEmployees(){
   var thead=document.getElementById('emp-thead');
   var tbody=document.getElementById('emp-tbody');
   var ly=curLeaveYear();
-  thead.innerHTML='<th>Name</th><th>Start date</th><th>Employee email</th><th>Manager 1 email</th><th>Manager 2 email</th><th>Password</th>'
+  thead.innerHTML='<th>Name</th><th>Start date</th><th>Employee email</th><th>Manager 1 email</th><th>Manager 2 email</th><th>Password</th><th>Admin</th><th>Accountant</th>'
     +leaveTypes.map(function(lt){var c=getColor(lt.color);return'<th><span class="lt-pill" style="background:'+c.bg+';color:'+c.text+';border:1px solid '+c.border+';font-size:10px">'+lt.name+'</span><br><span style="font-size:10px;color:var(--text3)">days/yr</span></th>';}).join('')
     +'<th>Balances</th><th></th>';
-  if(!employees.length){tbody.innerHTML='<tr><td colspan="'+(leaveTypes.length+5)+'" class="empty">No employees yet.</td></tr>';return;}
+  if(!employees.length){tbody.innerHTML='<tr><td colspan="'+(leaveTypes.length+7)+'" class="empty">No employees yet.</td></tr>';return;}
   tbody.innerHTML=employees.map(function(emp){
     var ltCols=leaveTypes.map(function(lt){
       var v=emp.entitlements&&emp.entitlements[lt.id]!==undefined?emp.entitlements[lt.id]:lt.days_per_year;
@@ -923,6 +867,8 @@ function renderEmployees(){
       +'<td><input type="email" value="'+(emp.manager_email||'')+'" data-empid="'+emp.id+'" class="mgr-inp" placeholder="manager1@email.com" style="width:150px;font-size:12px;padding:4px 6px"></td>'
       +'<td><input type="email" value="'+(emp.manager_email2||'')+'" data-empid="'+emp.id+'" class="mgr2-inp" placeholder="manager2@email.com" style="width:150px;font-size:12px;padding:4px 6px"></td>'
       +'<td><input type="text" value="'+(emp.password||'')+'" data-empid="'+emp.id+'" class="pw-inp" placeholder="Set password" style="width:110px;font-size:12px;padding:4px 6px"></td>'
+      +'<td style="text-align:center"><input type="checkbox" '+(emp.is_admin?'checked':'')+' data-empid="'+emp.id+'" class="admin-chk" style="width:16px;height:16px;accent-color:var(--accent)"></td>'
+      +'<td style="text-align:center"><input type="checkbox" '+(emp.is_accountant?'checked':'')+' data-empid="'+emp.id+'" class="acct-chk" style="width:16px;height:16px;accent-color:var(--accent)"></td>'
       +ltCols+'<td style="font-size:12px;line-height:1.9">'+bals+'</td>'
       +'<td style="white-space:nowrap"><button class="btn sm" data-ob-empid="'+emp.id+'" style="margin-right:4px">📋 Balances</button><button class="btn sm danger" data-empid="'+emp.id+'">🗑</button></td></tr>';
   }).join('');
@@ -932,6 +878,8 @@ function renderEmployees(){
   tbody.querySelectorAll('.mgr-inp').forEach(function(inp){inp.addEventListener('change',function(){updateEmpField(inp.dataset.empid,'manager_email',inp.value.trim());});});
   tbody.querySelectorAll('.mgr2-inp').forEach(function(inp){inp.addEventListener('change',function(){updateEmpField(inp.dataset.empid,'manager_email2',inp.value.trim());});});
   tbody.querySelectorAll('.pw-inp').forEach(function(inp){inp.addEventListener('change',function(){updateEmpField(inp.dataset.empid,'password',inp.value.trim());});});
+  tbody.querySelectorAll('.admin-chk').forEach(function(inp){inp.addEventListener('change',function(){updateEmpField(inp.dataset.empid,'is_admin',inp.checked);});});
+  tbody.querySelectorAll('.acct-chk').forEach(function(inp){inp.addEventListener('change',function(){updateEmpField(inp.dataset.empid,'is_accountant',inp.checked);});});
   tbody.querySelectorAll('button[data-empid]').forEach(function(b){b.addEventListener('click',function(){removeEmployee(b.dataset.empid);});});
   tbody.querySelectorAll('button[data-ob-empid]').forEach(function(b){b.addEventListener('click',function(){showOpeningBalanceModal(b.dataset.obEmpid);});});
 }
@@ -1137,53 +1085,6 @@ async function addHolidayYear(){
 // ═══════════════════════════════════════════════════
 function renderSettings(){
   document.getElementById('recovery-key-setting').value=currentCompany.recovery_key||'';
-  document.getElementById('accountant-pw-setting').value='';
-  renderManagersList();
-}
-
-function renderManagersList(){
-  var tb=document.getElementById('mgr-tbody');
-  if(!tb)return;
-  if(!managers.length){tb.innerHTML='<tr><td colspan="3" class="empty">No manager logins yet.</td></tr>';return;}
-  tb.innerHTML=managers.map(function(m){
-    return'<tr><td>'+m.name+'</td><td>'+m.email+'</td>'
-      +'<td><button class="btn sm danger" data-mgrid="'+m.id+'">\uD83D\uDDD1</button></td></tr>';
-  }).join('');
-  tb.querySelectorAll('button[data-mgrid]').forEach(function(b){
-    b.addEventListener('click',function(){removeManager(b.dataset.mgrid);});
-  });
-}
-
-async function registerManager(){
-  var name=document.getElementById('mgr-reg-name').value.trim();
-  var email=document.getElementById('mgr-reg-email').value.trim().toLowerCase();
-  var pw=document.getElementById('mgr-reg-pw').value.trim();
-  if(!name){alert('Please enter a name.');return;}
-  if(!email){alert('Please enter an email address.');return;}
-  if(!pw||pw.length<4){alert('Password must be at least 4 characters.');return;}
-  if(managers.some(function(m){return m.email.toLowerCase()===email;})){alert('A manager with this email already exists.');return;}
-  setSaving('Saving...');
-  try{
-    var r=await sbPost('managers',[{company_id:currentCompany.id,name:name,email:email,password:pw}]);
-    managers.push(r[0]);
-    document.getElementById('mgr-reg-name').value='';
-    document.getElementById('mgr-reg-email').value='';
-    document.getElementById('mgr-reg-pw').value='';
-    renderManagersList();
-    setSaving('\u2713 Saved');toast('Manager login created');
-  }catch(e){setSaving('');alert('Error: '+e.message);}
-}
-
-async function removeManager(id){
-  var m=managers.find(function(mm){return mm.id===id;});
-  if(!m||!confirm('Remove manager login for '+m.name+' ('+m.email+')? They will no longer be able to log in.'))return;
-  setSaving('Saving...');
-  try{
-    await sbDelete('managers',{id:id});
-    managers=managers.filter(function(mm){return mm.id!==id;});
-    renderManagersList();
-    setSaving('\u2713 Saved');toast('Manager login removed');
-  }catch(e){setSaving('');alert('Error: '+e.message);}
 }
 
 async function updateCompanyField(field,value){
@@ -1757,6 +1658,40 @@ function showRequestLeaveModal(empId, empName, mgr1, mgr2){
 }
 
 // ═══════════════════════════════════════════════════
+// UNIFIED LOGIN COMPLETION — one login, roles determine visible tabs
+// ═══════════════════════════════════════════════════
+async function completeLogin(user){
+  currentUser=user;
+  managerEmployees=employees.filter(function(e){
+    return (e.manager_email&&user.email&&e.manager_email.toLowerCase()===user.email.toLowerCase())
+      || (e.manager_email2&&user.email&&e.manager_email2.toLowerCase()===user.email.toLowerCase());
+  });
+
+  document.getElementById('hdr-co-name').textContent=currentCompany.name;
+  document.getElementById('hdr-user-name').textContent=user.name;
+
+  var isAdmin=!!user.is_admin;
+  var isAccountant=!!user.is_accountant;
+  var isManager=managerEmployees.length>0;
+
+  toggleTab('tab-btn-myleave', true);
+  toggleTab('tab-btn-myteam', isManager);
+  toggleTab('tab-btn-overview', isAccountant);
+  ['employees','leavetypes','calendar','balances','holidays','settings'].forEach(function(t){
+    toggleTab('tab-btn-'+t, isAdmin);
+  });
+
+  renderAll();
+  showScreen('app');
+  showTab('myleave');
+}
+
+function toggleTab(btnId, visible){
+  var btn=document.getElementById(btnId);
+  if(btn)btn.style.display=visible?'':'none';
+}
+
+// ═══════════════════════════════════════════════════
 // RENDER ALL
 // ═══════════════════════════════════════════════════
 function renderAll(){
@@ -1802,8 +1737,9 @@ document.addEventListener('DOMContentLoaded', async function(){
     try{
       await loadCompanyData(co);
       document.getElementById('login-sub').textContent=co.name;
-      document.getElementById('login-emp-sel').innerHTML=employees.map(function(e){return'<option value="'+e.id+'">'+e.name+'</option>';}).join('');
-      showLoginStep('login');showLoginTab('emp');setLoginErr('');
+      showLoginStep('login');setLoginErr('');
+      document.getElementById('login-email-inp').value='';
+      document.getElementById('login-pw-inp').value='';
     }catch(e){alert('Error loading company: '+e.message);}
   });
 
@@ -1841,145 +1777,93 @@ document.addEventListener('DOMContentLoaded', async function(){
   });
   document.getElementById('back-to-cos-btn').addEventListener('click',function(){showLoginStep(companies.length?'select':'new');setLoginErr('');});
 
-  // ── Create company ──
+  // ── Create company (creates the company + you, as the first admin employee) ──
   document.getElementById('create-co-btn').addEventListener('click',async function(){
     var name=document.getElementById('new-co-name').value.trim();
+    var yourName=document.getElementById('new-co-your-name').value.trim();
+    var yourEmail=document.getElementById('new-co-your-email').value.trim().toLowerCase();
     var pw=document.getElementById('new-co-pw').value.trim();
     var rk=document.getElementById('new-co-rk').value.trim();
     if(!name){setLoginErr('Please enter a company name.');return;}
+    if(!yourName){setLoginErr('Please enter your name.');return;}
+    if(!yourEmail){setLoginErr('Please enter your email.');return;}
     if(!pw||pw.length<4){setLoginErr('Password must be at least 4 characters.');return;}
     if(!rk){setLoginErr('Please enter a recovery key.');return;}
     try{
-      var r=await sbPost('companies',[{name:name,admin_password:pw,recovery_key:rk,accountant_password:''}]);
+      var r=await sbPost('companies',[{name:name,admin_password:pw,recovery_key:rk}]);
       var co=r[0];
       companies.push(co);
       // Add default leave types
       var lts=DEFAULT_LT.map(function(lt){return Object.assign({},lt,{company_id:co.id});});
-      var ltRes=await sbPost('leave_types',lts);
+      await sbPost('leave_types',lts);
       // Add default holidays
       var hols=DEFAULT_HOL.map(function(h){return{company_id:co.id,date:h.date,name:h.name};});
       await sbPost('public_holidays',hols);
+      // Create the first employee — you — as admin + accountant
+      await sbPost('employees',[{company_id:co.id,name:yourName,email:yourEmail,password:pw,is_admin:true,is_accountant:true}]);
       await loadCompanyData(co);
-      document.getElementById('hdr-co-name').textContent=co.name;
-      showScreen('app');renderAll();showTab('employees');
+      await completeLogin(employees.find(function(e){return e.email&&e.email.toLowerCase()===yourEmail;}));
       toast('Company created! Add your employees to get started.');
     }catch(e){setLoginErr('Error: '+e.message);}
   });
 
-  // ── Login tabs ──
-  document.getElementById('ltab-emp').addEventListener('click',function(){showLoginTab('emp');setLoginErr('');});
-  document.getElementById('ltab-admin').addEventListener('click',function(){showLoginTab('admin');setLoginErr('');});
-
-  // ── Employee login ──
-  document.getElementById('do-emp-login-btn').addEventListener('click',async function(){
-    var empId=document.getElementById('login-emp-sel').value;
-    var pw=document.getElementById('login-emp-pw').value;
-    var emp=employees.find(function(e){return e.id===empId;});
-    if(!emp||!emp.password||emp.password!==pw){setLoginErr('Incorrect password.');document.getElementById('login-emp-pw').value='';return;}
-    setLoginErr('');renderEmpView(empId);showScreen('empview');
-  });
-  document.getElementById('login-emp-pw').addEventListener('keydown',function(e){if(e.key==='Enter')document.getElementById('do-emp-login-btn').click();});
-
-  // ── Admin login ──
-  document.getElementById('do-admin-login-btn').addEventListener('click',function(){
-    var pw=document.getElementById('login-admin-pw').value;
-    if(pw!==currentCompany.admin_password){setLoginErr('Incorrect admin password.');document.getElementById('login-admin-pw').value='';return;}
+  // ── Unified login (works for anyone: employee, admin, manager, accountant — same email/password) ──
+  document.getElementById('do-login-btn').addEventListener('click',async function(){
+    var email=document.getElementById('login-email-inp').value.trim().toLowerCase();
+    var pw=document.getElementById('login-pw-inp').value;
+    if(!email||!pw){setLoginErr('Please enter your email and password.');return;}
+    var user=employees.find(function(e){return e.email&&e.email.toLowerCase()===email;});
+    if(!user||!user.password||user.password!==pw){setLoginErr('Incorrect email or password.');document.getElementById('login-pw-inp').value='';return;}
     setLoginErr('');
-    document.getElementById('hdr-co-name').textContent=currentCompany.name;
-    showScreen('app');renderAll();showTab('employees');
+    await completeLogin(user);
   });
-  document.getElementById('login-admin-pw').addEventListener('keydown',function(e){if(e.key==='Enter')document.getElementById('do-admin-login-btn').click();});
+  document.getElementById('login-pw-inp').addEventListener('keydown',function(e){if(e.key==='Enter')document.getElementById('do-login-btn').click();});
 
   // ── Forgot password ──
   document.getElementById('forgot-pw-btn').addEventListener('click',function(){
-    document.getElementById('admin-login-form').style.display='none';
+    document.getElementById('unified-login-form').style.display='none';
     document.getElementById('forgot-pw-panel').style.display='';
     setLoginErr('');
   });
-  document.getElementById('back-to-admin-login-btn').addEventListener('click',function(){
+  document.getElementById('back-to-login-btn').addEventListener('click',function(){
     document.getElementById('forgot-pw-panel').style.display='none';
-    document.getElementById('admin-login-form').style.display='';
+    document.getElementById('unified-login-form').style.display='';
     setLoginErr('');
   });
   document.getElementById('do-reset-btn').addEventListener('click',async function(){
+    var email=document.getElementById('reset-email-inp').value.trim().toLowerCase();
     var rk=document.getElementById('recovery-key-inp').value.trim();
     var newpw=document.getElementById('new-pw-inp').value.trim();
-    if(!rk){setLoginErr('Please enter your recovery key.');return;}
+    if(!email){setLoginErr('Please enter your email.');return;}
+    if(!rk){setLoginErr('Please enter the company recovery key.');return;}
     if(rk!==currentCompany.recovery_key){setLoginErr('Incorrect recovery key.');return;}
     if(!newpw||newpw.length<4){setLoginErr('Password must be at least 4 characters.');return;}
+    var user=employees.find(function(e){return e.email&&e.email.toLowerCase()===email;});
+    if(!user){setLoginErr('No account found with that email.');return;}
     try{
-      await sbPatch('companies',{id:currentCompany.id},{admin_password:newpw});
-      currentCompany.admin_password=newpw;
+      await sbPatch('employees',{id:user.id},{password:newpw});
+      user.password=newpw;
+      document.getElementById('reset-email-inp').value='';
       document.getElementById('recovery-key-inp').value='';
       document.getElementById('new-pw-inp').value='';
       document.getElementById('forgot-pw-panel').style.display='none';
-      document.getElementById('admin-login-form').style.display='';
+      document.getElementById('unified-login-form').style.display='';
       setLoginErr('');toast('Password reset! Please log in with your new password.');
     }catch(e){setLoginErr('Error: '+e.message);}
   });
 
   // ── Logout ──
   document.getElementById('logout-btn').addEventListener('click',function(){
-    currentCompany=null;employees=[];leaveTypes=[];holidays=[];leaveRecords=[];
-    document.getElementById('login-admin-pw').value='';
-    document.getElementById('login-emp-pw').value='';
+    currentCompany=null;employees=[];leaveTypes=[];holidays=[];leaveRecords=[];currentUser=null;managerEmployees=[];
+    document.getElementById('login-email-inp').value='';
+    document.getElementById('login-pw-inp').value='';
     var sel=document.getElementById('co-select');
     sel.innerHTML=companies.map(function(c){return'<option value="'+c.id+'">'+c.name+'</option>';}).join('');
     showScreen('login');showLoginStep(companies.length?'select':'new');setLoginErr('');
   });
-
-  // ── Accountant login ──
-  document.getElementById('ltab-accountant').addEventListener('click',function(){showLoginTab('accountant');setLoginErr('');});
-  document.getElementById('do-accountant-login-btn').addEventListener('click',function(){
-    var pw=document.getElementById('login-accountant-pw').value;
-    if(!currentCompany.accountant_password){setLoginErr('No accountant password has been set for this company. Ask the admin to set one in Settings.');return;}
-    if(pw!==currentCompany.accountant_password){setLoginErr('Incorrect accountant password.');document.getElementById('login-accountant-pw').value='';return;}
-    setLoginErr('');
-    document.getElementById('av-co-name').textContent=currentCompany.name;
-    document.getElementById('av-sub').textContent='View-only access · All employees · '+new Date().getFullYear();
-    populateAvYears();
-    renderAccountantView();
-    showScreen('accountant');
-  });
-  document.getElementById('login-accountant-pw').addEventListener('keydown',function(e){if(e.key==='Enter')document.getElementById('do-accountant-login-btn').click();});
-  document.getElementById('av-logout-btn').addEventListener('click',function(){
-    document.getElementById('login-accountant-pw').value='';
-    showScreen('login');showLoginStep(companies.length?'select':'new');
-  });
   document.getElementById('av-year-sel').addEventListener('change',renderAccountantView);
   document.getElementById('av-export-btn').addEventListener('click',exportAccountantExcel);
-
-  // ── Manager login ──
-  document.getElementById('ltab-manager').addEventListener('click',function(){showLoginTab('manager');setLoginErr('');});
-  document.getElementById('do-manager-login-btn').addEventListener('click',function(){
-    var email=document.getElementById('login-manager-email').value.trim().toLowerCase();
-    var pw=document.getElementById('login-manager-pw').value;
-    var mgr=managers.find(function(m){return m.email.toLowerCase()===email;});
-    if(!mgr){setLoginErr('No manager account found with that email.');return;}
-    if(mgr.password!==pw){setLoginErr('Incorrect password.');document.getElementById('login-manager-pw').value='';return;}
-    setLoginErr('');
-    currentManager=mgr;
-    managerEmployees=employees.filter(function(e){
-      return (e.manager_email&&e.manager_email.toLowerCase()===mgr.email.toLowerCase())
-        || (e.manager_email2&&e.manager_email2.toLowerCase()===mgr.email.toLowerCase());
-    });
-    document.getElementById('mgr-co-name').textContent=currentCompany.name;
-    document.getElementById('mgr-sub').textContent='Manager view \u00b7 '+mgr.name+' \u00b7 '+managerEmployees.length+' employee'+(managerEmployees.length!==1?'s':'');
-    populateMgrYears();
-    renderManagerView();
-    showScreen('manager');
-  });
-  document.getElementById('login-manager-pw').addEventListener('keydown',function(e){if(e.key==='Enter')document.getElementById('do-manager-login-btn').click();});
-  document.getElementById('mgr-logout-btn').addEventListener('click',function(){
-    document.getElementById('login-manager-pw').value='';
-    document.getElementById('login-manager-email').value='';
-    currentManager=null;managerEmployees=[];
-    showScreen('login');showLoginStep(companies.length?'select':'new');
-  });
   document.getElementById('mgr-year-sel').addEventListener('change',renderManagerView);
-  document.getElementById('ev-logout-btn').addEventListener('click',function(){
-    showScreen('login');showLoginStep(companies.length?'select':'new');
-  });
 
   // ── Tabs ──
   document.querySelectorAll('.tab').forEach(function(t){t.addEventListener('click',function(){showTab(t.dataset.tab);});});
@@ -2007,12 +1891,12 @@ document.addEventListener('DOMContentLoaded', async function(){
   document.getElementById('add-hol-yr-btn').addEventListener('click',addHolidayYear);
 
   // ── Settings ──
-  document.getElementById('change-admin-pw-btn').addEventListener('click',async function(){
-    var pw=document.getElementById('admin-pw-inp').value.trim();
+  document.getElementById('change-my-pw-btn').addEventListener('click',async function(){
+    var pw=document.getElementById('my-pw-inp').value.trim();
     if(!pw||pw.length<4){alert('Password must be at least 4 characters.');return;}
-    await updateCompanyField('admin_password',pw);
-    document.getElementById('admin-pw-inp').value='';
-    toast('Admin password updated');
+    await updateEmpField(currentUser.id,'password',pw);
+    document.getElementById('my-pw-inp').value='';
+    toast('Your password has been updated');
   });
   document.getElementById('change-recovery-btn').addEventListener('click',async function(){
     var rk=document.getElementById('recovery-key-setting').value.trim();
@@ -2020,15 +1904,6 @@ document.addEventListener('DOMContentLoaded', async function(){
     await updateCompanyField('recovery_key',rk);
     toast('Recovery key updated');
   });
-  document.getElementById('change-accountant-pw-btn').addEventListener('click',async function(){
-    var pw=document.getElementById('accountant-pw-setting').value.trim();
-    if(!pw){alert('Please enter a password.');return;}
-    if(pw.length<4){alert('Password must be at least 4 characters.');return;}
-    await updateCompanyField('accountant_password',pw);
-    document.getElementById('accountant-pw-setting').value='';
-    toast('Accountant password updated');
-  });
-  document.getElementById('mgr-reg-btn').addEventListener('click',registerManager);
   document.getElementById('delete-co-btn').addEventListener('click',async function(){
     if(!confirm('Delete "'+currentCompany.name+'" and ALL its data? This cannot be undone.'))return;
     if(!confirm('Are you absolutely sure? All employees and leave records will be permanently deleted.'))return;
