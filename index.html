@@ -1635,13 +1635,13 @@ function showRequestLeaveModal(empId, empName, mgr1, mgr2){
       // Build mailto to both managers
       var recipients=[mgr1,mgr2].filter(Boolean).join(';');
       var subject='Leave Request \u2014 '+empName;
-      var body='Hi,\n\n'
-        +'This confirms my leave request:\n\n'
-        +'Leave type: '+lt.name+'\n'
-        +'From: '+formatDateNice(start)+'\n'
-        +'To: '+formatDateNice(end)+'\n'
-        +'Working days: '+dayKeys.length+'\n\n'
-        +'These dates have already been captured on the leave tracker.\n\n'
+      var body='Good day,\n\n'
+        +'I would like apply for the following leave:\n\n'
+        +'Leave Type: '+lt.name+'\n'
+        +'From Date: '+formatDateNice(start)+'\n'
+        +'To Date: '+formatDateNice(end)+'\n'
+        +'Working Days: '+dayKeys.length+'\n\n'
+        +'Thank you very much.\n\n'
         +'Regards,\n'+empName;
       var mailto='mailto:'+encodeURIComponent(recipients)
         +'?subject='+encodeURIComponent(subject)
