@@ -1,11 +1,2092 @@
-create table accountants (
-  id uuid primary key default gen_random_uuid(),
-  company_id uuid references companies(id) on delete cascade,
-  name text not null,
-  email text not null,
-  password text not null,
-  created_at timestamptz default now(),
-  unique(company_id, email)
-);
-alter table accountants enable row level security;
-create policy "allow_all" on accountants for all using (true) with check (true);
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Employee Leave Tracker</title>
+<style>
+:root{
+  --bg:#F7F6F2;--surface:#FFF;--surface2:#F0EFE9;--border:#E2E0D8;--border2:#CCCAB8;
+  --text:#1A1916;--text2:#6B6960;--text3:#A8A698;
+  --accent:#2D5A3D;--accent-light:#E8F2EB;--accent-text:#1A3D26;
+  --warn:#8B3A1A;--warn-light:#FAECE7;--danger:#C0392B;
+  --radius:10px;--radius-sm:6px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);font-size:14px;min-height:100vh}
+#loading-screen{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:200;gap:16px}
+#loading-screen.gone{display:none}
+.spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#login-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px}
+#login-screen.gone{display:none}
+.login-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:36px;width:100%;max-width:400px;box-shadow:0 4px 24px rgba(0,0,0,.08)}
+.login-logo{text-align:center;margin-bottom:24px}
+.login-logo h2{font-size:20px;font-weight:600;color:var(--text);margin-top:10px}
+.login-logo p{font-size:13px;color:var(--text2);margin-top:4px}
+.ltabs{display:flex;background:var(--surface2);border-radius:var(--radius-sm);padding:3px;margin-bottom:18px}
+.ltab{flex:1;padding:7px;text-align:center;font-size:13px;font-weight:500;border-radius:4px;cursor:pointer;border:none;background:transparent;color:var(--text2)}
+.ltab.active{background:var(--surface);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.lfield{margin-bottom:14px}
+.lfield label{display:block;font-size:12px;font-weight:500;color:var(--text2);margin-bottom:5px}
+.lfield input,.lfield select{width:100%;font-family:inherit;font-size:14px;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);outline:none}
+.lfield input:focus,.lfield select:focus{border-color:var(--accent)}
+.lbtn{width:100%;padding:11px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;margin-top:4px}
+.lbtn:hover{background:#234a31}
+.lbtn.sec{background:var(--surface2);color:var(--text);border:1px solid var(--border);margin-top:8px}
+.lerr{background:#FEF0F0;border:1px solid #F5C6C6;border-radius:var(--radius-sm);padding:9px 12px;font-size:13px;color:var(--danger);margin-bottom:14px;display:none}
+.lerr.show{display:block}
+#app{display:none}
+#app.visible{display:block}
+header{background:var(--accent);color:#fff;padding:16px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+.hdr-left{display:flex;align-items:center;gap:12px}
+header h1{font-size:18px;font-weight:600}
+header p{font-size:11px;opacity:.7;margin-top:2px}
+.hdr-btns{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.hbtn{font-family:inherit;font-size:12px;font-weight:500;padding:7px 14px;border-radius:var(--radius-sm);cursor:pointer;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.15);color:#fff}
+.hbtn:hover{background:rgba(255,255,255,.25)}
+.tabs{display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:4px;margin:20px 20px 0;width:fit-content;flex-wrap:wrap}
+.tab{padding:7px 15px;border-radius:var(--radius-sm);font-size:13px;font-weight:500;cursor:pointer;border:none;background:transparent;color:var(--text2)}
+.tab:hover{background:var(--surface2);color:var(--text)}
+.tab.active{background:var(--accent);color:#fff}
+.panel{display:none;padding:16px 20px 28px}
+.panel.active{display:block}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px;margin-bottom:14px}
+.card-title{font-size:14px;font-weight:600;margin-bottom:14px}
+.form-row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:12px;font-weight:500;color:var(--text2)}
+input[type=text],input[type=number],input[type=date],input[type=password],select{font-family:inherit;font-size:13px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);outline:none}
+input:focus,select:focus{border-color:var(--accent)}
+.btn{font-family:inherit;font-size:13px;font-weight:500;padding:8px 16px;border-radius:var(--radius-sm);cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--text);display:inline-flex;align-items:center;gap:6px}
+.btn:hover{background:var(--surface2)}
+.btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn.primary:hover{background:#234a31}
+.btn.sm{padding:5px 10px;font-size:12px}
+.btn.danger{color:var(--danger)}
+.btn.danger:hover{background:#FEF0F0}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);padding:8px 10px;border-bottom:1px solid var(--border)}
+td{padding:9px 10px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:var(--bg)}
+.num{text-align:right;font-family:'Consolas','Courier New',monospace;font-size:13px}
+.total-row td{font-weight:600;background:var(--surface2)}
+.ovx{overflow-x:auto}
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px}
+.metric{background:var(--bg);border-radius:var(--radius-sm);padding:14px;border:1px solid var(--border)}
+.metric-label{font-size:11px;font-weight:500;color:var(--text2);margin-bottom:5px;text-transform:uppercase;letter-spacing:.4px}
+.metric-val{font-size:22px;font-weight:600;font-family:'Consolas','Courier New',monospace}
+.metric-val.good{color:var(--accent)}.metric-val.warn{color:var(--danger)}
+.cal-hdr{display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap}
+.cal-nav{display:flex;align-items:center;gap:8px}
+.cal-title{font-size:15px;font-weight:600;min-width:150px}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.cal-dh{font-size:11px;font-weight:600;text-align:center;padding:5px 0;color:var(--text3);text-transform:uppercase}
+.cal-day{min-height:52px;border-radius:var(--radius-sm);padding:5px;font-size:12px;border:1px solid transparent}
+.cal-day.other{color:var(--text3)}
+.cal-day.weekend{background:#F0EFE9;color:#6B6960}
+.cal-day.holiday{background:#FAECE7;color:#8B3A1A}
+.cal-day.before-start{background:#F7F6F2;color:#ccc}
+.cal-day.workday{cursor:pointer}
+.cal-day.workday:hover{border-color:var(--accent)}
+.day-num{font-weight:600;display:block;margin-bottom:2px}
+.day-tag{font-size:10px;display:block;line-height:1.3;border-radius:3px;padding:1px 3px;margin-top:1px}
+.legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px}
+.leg{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text2)}
+.leg-dot{width:13px;height:13px;border-radius:3px;border:1px solid rgba(0,0,0,.08)}
+.badge{display:inline-block;font-size:10px;font-weight:600;padding:2px 6px;border-radius:99px}
+.badge.current{background:var(--accent-light);color:var(--accent-text)}
+.badge.forfeited{background:var(--warn-light);color:var(--warn)}
+.badge.ns{background:#F0EFE9;color:#6B6960}
+.lt-pill{display:inline-flex;align-items:center;font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px;white-space:nowrap}
+.hint{font-size:12px;color:var(--text3);margin-top:3px}
+.empty{text-align:center;padding:28px;color:var(--text3)}
+.alert{background:var(--accent-light);border:1px solid #A8CEB4;border-radius:var(--radius-sm);padding:10px 14px;font-size:13px;color:var(--accent-text);margin-bottom:14px}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:600px){.two-col{grid-template-columns:1fr}}
+.sec-sub{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
+.hol-ytabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.hol-ytab{padding:5px 13px;border-radius:var(--radius-sm);font-size:12px;font-weight:500;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--text2)}
+.hol-ytab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.cpick{display:flex;gap:7px;flex-wrap:wrap;margin-top:4px}
+.cpick-dot{width:26px;height:26px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;border:2px solid transparent}
+#emp-view{display:none}
+#emp-view.visible{display:block}
+.ev-hdr{background:var(--accent);color:#fff;padding:18px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+.ev-hdr h1{font-size:18px;font-weight:600}
+.ev-hdr p{font-size:12px;opacity:.7;margin-top:2px}
+.ev-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;padding:20px}
+.ev-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;border-left-width:4px}
+.ev-type{font-size:13px;font-weight:600;margin-bottom:3px}
+.ev-sub{font-size:12px;color:var(--text2);margin-bottom:14px}
+.ev-num{font-size:38px;font-weight:600;font-family:'Consolas','Courier New',monospace;line-height:1}
+.ev-unit{font-size:13px;color:var(--text2);margin-top:5px}
+.ev-taken{font-size:12px;color:var(--text3);margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--accent);color:#fff;font-size:13px;font-weight:500;padding:10px 20px;border-radius:99px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:9999}
+#toast.show{opacity:1}
+.saving-indicator{font-size:11px;color:rgba(255,255,255,.6);margin-left:4px}
+#accountant-view{display:none}
+#accountant-view.visible{display:block}
+#manager-view{display:none}
+#manager-view.visible{display:block}
+.av-hdr{background:var(--accent);color:#fff;padding:18px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+.av-hdr h1{font-size:18px;font-weight:600}
+.av-hdr p{font-size:12px;opacity:.7;margin-top:2px}
+.av-main{max-width:1060px;margin:0 auto;padding:20px}
+.av-emp-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:14px;overflow:hidden}
+.av-emp-hdr{background:var(--surface2);padding:12px 18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.av-emp-name{font-size:14px;font-weight:600;color:var(--text)}
+.av-emp-sub{font-size:12px;color:var(--text2)}
+.av-balances{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1px;background:var(--border)}
+.av-bal-cell{background:var(--surface);padding:14px 16px}
+.av-bal-type{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px}
+.av-bal-num{font-size:20px;font-weight:600;font-family:'Consolas','Courier New',monospace}
+.av-bal-taken{font-size:11px;color:var(--text3);margin-top:4px}
+.av-cal-section{padding:16px 18px;border-top:1px solid var(--border)}
+.av-cal-section h4{font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;cursor:pointer;display:flex;align-items:center;gap:6px;user-select:none}
+.av-months{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
+.av-month{background:var(--bg);border-radius:var(--radius-sm);padding:12px;border:1px solid var(--border)}
+.av-month-title{font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px}
+.av-mini-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.av-mini-dh{font-size:9px;font-weight:600;text-align:center;color:var(--text3);padding:2px 0;text-transform:uppercase}
+.av-mini-day{min-height:24px;border-radius:3px;font-size:10px;text-align:center;padding:3px 2px;line-height:1.2}
+.av-mini-day.weekend{background:#F0EFE9;color:#9B9890}
+.av-mini-day.holiday{background:#FAECE7;color:#8B3A1A}
+.av-mini-day.leave{font-weight:600}
+.av-mini-day.before-start{color:#ccc}
+.av-mini-day.other{opacity:0}
+.av-monthly-table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px}
+.av-monthly-table th{text-align:right;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:var(--text3);padding:6px 8px;border-bottom:1px solid var(--border)}
+.av-monthly-table th:first-child{text-align:left}
+.av-monthly-table td{padding:6px 8px;text-align:right;border-bottom:1px solid var(--border);font-family:'Consolas','Courier New',monospace}
+.av-monthly-table td:first-child{text-align:left;font-family:inherit}
+.av-monthly-table tr:last-child td{border-bottom:none}
+.ob-modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px}
+.ob-modal{background:#fff;border-radius:12px;padding:26px;width:100%;max-width:500px;box-shadow:0 12px 60px rgba(0,0,0,.2);max-height:90vh;overflow-y:auto}
+.ob-modal h3{font-size:16px;font-weight:600;margin-bottom:4px}
+.ob-modal p{font-size:13px;color:var(--text2);margin-bottom:18px;line-height:1.6}
+.ob-row{display:flex;align-items:center;gap:12px;margin-bottom:12px;padding:10px 12px;background:var(--bg);border-radius:var(--radius-sm);border:1px solid var(--border)}
+.ob-lt-name{flex:1;font-size:13px;font-weight:500}
+.ob-input{width:90px;text-align:right;font-family:'Consolas','Courier New',monospace}
+.ob-default{font-size:11px;color:var(--text3);width:80px;text-align:right}
+.rl-modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px}
+.rl-modal{background:#fff;border-radius:14px;padding:26px;width:100%;max-width:440px;box-shadow:0 12px 60px rgba(0,0,0,.2)}
+.rl-modal h3{font-size:16px;font-weight:600;margin-bottom:16px;color:var(--text)}
+.rl-modal .lfield{margin-bottom:14px}
+.rl-days-preview{font-size:13px;color:var(--text2);margin:-6px 0 16px}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+
+<div id="loading-screen">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="52" height="52" fill="none">
+    <rect x="5" y="10" width="38" height="32" rx="4" fill="#E8F2EB" stroke="#2D5A3D" stroke-width="2"/>
+    <rect x="5" y="10" width="38" height="11" rx="4" fill="#2D5A3D"/>
+    <rect x="5" y="18" width="38" height="3" fill="#2D5A3D"/>
+    <line x1="15" y1="7" x2="15" y2="15" stroke="#2D5A3D" stroke-width="2.5" stroke-linecap="round"/>
+    <line x1="33" y1="7" x2="33" y2="15" stroke="#2D5A3D" stroke-width="2.5" stroke-linecap="round"/>
+    <path d="M14 31l5 5 10-10" stroke="#2D5A3D" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+  <div class="spinner"></div>
+  <p style="color:var(--text2);font-size:13px">Loading...</p>
+</div>
+
+<div id="login-screen" class="gone">
+  <div class="login-card">
+    <div class="login-logo">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="52" height="52" fill="none">
+        <rect x="5" y="10" width="38" height="32" rx="4" fill="#E8F2EB" stroke="#2D5A3D" stroke-width="2"/>
+        <rect x="5" y="10" width="38" height="11" rx="4" fill="#2D5A3D"/>
+        <rect x="5" y="18" width="38" height="3" fill="#2D5A3D"/>
+        <line x1="15" y1="7" x2="15" y2="15" stroke="#2D5A3D" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="33" y1="7" x2="33" y2="15" stroke="#2D5A3D" stroke-width="2.5" stroke-linecap="round"/>
+        <path d="M14 31l5 5 10-10" stroke="#2D5A3D" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <h2>Leave Tracker</h2>
+      <p id="login-sub">South Africa · Mar–Feb leave year</p>
+    </div>
+    <div id="login-err" class="lerr"></div>
+
+    <!-- Company selector -->
+    <div id="step-select">
+      <div class="lfield"><label>Select company</label><select id="co-select"></select></div>
+      <button class="lbtn" id="co-select-btn">Continue</button>
+      <button class="lbtn sec" id="new-co-show-btn">+ Create new company</button>
+    </div>
+
+    <!-- New company — master code gate -->
+    <div id="step-new" style="display:none">
+      <!-- Step A: master code -->
+      <div id="new-co-gate">
+        <div class="lfield">
+          <label>System access code</label>
+          <input type="password" id="master-code-inp" placeholder="Enter system access code">
+          <span style="font-size:11px;color:var(--text3);margin-top:4px;display:block">Contact the system administrator for this code.</span>
+        </div>
+        <button class="lbtn" id="verify-master-btn">Continue</button>
+        <button class="lbtn sec" id="back-to-select-btn">← Back</button>
+      </div>
+      <!-- Step B: company details (shown after code verified) -->
+      <div id="new-co-form" style="display:none">
+        <div class="lfield"><label>Company name</label><input type="text" id="new-co-name" placeholder="e.g. Acme Corp"></div>
+        <div class="lfield"><label>Your name</label><input type="text" id="new-co-your-name" placeholder="Your full name"></div>
+        <div class="lfield"><label>Your email</label><input type="email" id="new-co-your-email" placeholder="your@email.com"></div>
+        <div class="lfield"><label>Password</label><input type="password" id="new-co-pw" placeholder="Min 4 characters"></div>
+        <div class="lfield"><label>Recovery key <span style="font-weight:400;color:var(--text3)">(for forgotten password)</span></label><input type="text" id="new-co-rk" placeholder="A word or phrase you will remember"></div>
+        <button class="lbtn" id="create-co-btn">Create company</button>
+        <button class="lbtn sec" id="back-to-gate-btn">← Back</button>
+      </div>
+    </div>
+
+    <!-- Login form — one login for everyone, roles determine what they see -->
+    <div id="step-login" style="display:none">
+      <div id="unified-login-form">
+        <div class="lfield"><label>Email</label><input type="email" id="login-email-inp" placeholder="your@email.com"></div>
+        <div class="lfield"><label>Password</label><input type="password" id="login-pw-inp" placeholder="Enter your password"></div>
+        <button class="lbtn" id="do-login-btn">Sign in</button>
+        <button type="button" id="forgot-pw-btn" style="width:100%;margin-top:10px;padding:8px;background:transparent;border:none;color:var(--text2);font-family:inherit;font-size:13px;cursor:pointer;text-decoration:underline">Forgot password?</button>
+      </div>
+      <div id="forgot-pw-panel" style="display:none">
+        <div style="background:var(--surface2);border-radius:8px;padding:12px;font-size:13px;color:var(--text2);margin-bottom:14px;line-height:1.7">Enter your email and the company recovery key to set a new password.</div>
+        <div class="lfield"><label>Email</label><input type="email" id="reset-email-inp" placeholder="your@email.com"></div>
+        <div class="lfield"><label>Recovery key</label><input type="text" id="recovery-key-inp" placeholder="Company recovery key"></div>
+        <div class="lfield"><label>New password</label><input type="password" id="new-pw-inp" placeholder="Min 4 characters"></div>
+        <button class="lbtn" id="do-reset-btn">Reset password</button>
+        <button type="button" id="back-to-login-btn" style="width:100%;margin-top:10px;padding:8px;background:transparent;border:none;color:var(--text2);font-family:inherit;font-size:13px;cursor:pointer;text-decoration:underline">← Back</button>
+      </div>
+      <button class="lbtn sec" id="back-to-cos-btn">← Back to companies</button>
+    </div>
+  </div>
+</div>
+
+<div id="app">
+  <header>
+    <div class="hdr-left">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 34 34" width="34" height="34" fill="none">
+        <rect x="4" y="7" width="26" height="22" rx="3" fill="rgba(255,255,255,0.25)" stroke="rgba(255,255,255,0.7)" stroke-width="1.5"/>
+        <rect x="4" y="7" width="26" height="7" rx="3" fill="rgba(255,255,255,0.35)"/>
+        <rect x="4" y="11" width="26" height="3" fill="rgba(255,255,255,0.35)"/>
+        <line x1="10" y1="5" x2="10" y2="10" stroke="rgba(255,255,255,0.9)" stroke-width="2" stroke-linecap="round"/>
+        <line x1="24" y1="5" x2="24" y2="10" stroke="rgba(255,255,255,0.9)" stroke-width="2" stroke-linecap="round"/>
+        <path d="M11 21l3.5 3.5 7-7" stroke="rgba(255,255,255,0.95)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div><h1 id="hdr-co-name">Leave Tracker</h1><p>South Africa · 1 March – 28/29 Feb · Auto-saves to cloud</p></div>
+    </div>
+    <div class="hdr-btns">
+      <span id="hdr-user-name" style="font-size:12px;opacity:.85;margin-right:6px"></span>
+      <span class="saving-indicator" id="save-indicator"></span>
+      <button class="hbtn" id="logout-btn">← Logout</button>
+    </div>
+  </header>
+
+  <div class="tabs">
+    <button class="tab" data-tab="myleave" id="tab-btn-myleave" style="display:none">My Leave</button>
+    <button class="tab" data-tab="myteam" id="tab-btn-myteam" style="display:none">My Team</button>
+    <button class="tab" data-tab="overview" id="tab-btn-overview" style="display:none">Company Overview</button>
+    <button class="tab" data-tab="employees" id="tab-btn-employees" style="display:none">Employees</button>
+    <button class="tab" data-tab="leavetypes" id="tab-btn-leavetypes" style="display:none">Leave types</button>
+    <button class="tab" data-tab="calendar" id="tab-btn-calendar" style="display:none">Calendar</button>
+    <button class="tab" data-tab="balances" id="tab-btn-balances" style="display:none">Balances</button>
+    <button class="tab" data-tab="holidays" id="tab-btn-holidays" style="display:none">Public holidays</button>
+    <button class="tab" data-tab="settings" id="tab-btn-settings" style="display:none">Settings</button>
+  </div>
+
+  <div class="panel" id="panel-myleave">
+    <div style="max-width:900px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+        <div><h2 id="ev-name" style="font-size:16px;font-weight:600"></h2><p id="ev-sub" style="font-size:12px;color:var(--text2)"></p></div>
+        <button class="btn primary" id="ev-request-leave-btn">📋 Request Leave</button>
+      </div>
+      <div class="ev-grid" id="ev-grid"></div>
+    </div>
+  </div>
+
+  <div class="panel" id="panel-myteam">
+    <div class="card">
+      <div class="card-title">My Team</div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+        <div class="field"><label style="font-size:12px;font-weight:500;color:var(--text2)">Leave year</label><select id="mgr-year-sel" style="width:160px"></select></div>
+        <span style="font-size:12px;color:var(--text2);margin-top:18px">View-only — no changes can be made here</span>
+      </div>
+      <div id="mgr-grid"></div>
+    </div>
+  </div>
+
+  <div class="panel" id="panel-overview">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;margin-bottom:16px">
+        <div>
+          <div class="card-title" style="margin-bottom:6px">Company Overview</div>
+          <div class="field"><label style="font-size:12px;font-weight:500;color:var(--text2)">Leave year</label><select id="av-year-sel" style="width:160px"></select></div>
+        </div>
+        <button class="btn" id="av-export-btn" style="background:#1D6A2A;color:#fff;border-color:#1D6A2A">↓ Export to Excel</button>
+      </div>
+      <div id="av-grid"></div>
+    </div>
+  </div>
+
+  <div class="panel active" id="panel-employees">
+    <div class="card">
+      <div class="card-title">Add employee</div>
+      <div class="form-row">
+        <div class="field"><label>Full name</label><input type="text" id="inp-name" placeholder="Jane Smith" style="width:180px"></div>
+        <div class="field"><label>Start date</label><input type="date" id="inp-start"></div>
+        <div class="field"><label>&nbsp;</label><button class="btn primary" id="add-emp-btn">+ Add employee</button></div>
+      </div>
+      <div class="ovx"><table><thead><tr id="emp-thead"></tr></thead><tbody id="emp-tbody"></tbody></table></div>
+    </div>
+  </div>
+
+  <div class="panel" id="panel-leavetypes">
+    <div class="card">
+      <div class="card-title">Leave types</div>
+      <div class="alert">Accruing types build monthly. Non-accruing types are granted in full at year start.</div>
+      <div class="two-col">
+        <div>
+          <div class="sec-sub">Existing</div>
+          <table><thead><tr><th>Name</th><th>Days/yr</th><th>Accrual</th><th>Colour</th><th></th></tr></thead><tbody id="lt-tbody"></tbody></table>
+        </div>
+        <div>
+          <div class="sec-sub">Add new</div>
+          <div class="field" style="margin-bottom:10px"><label>Name</label><input type="text" id="lt-name" placeholder="e.g. Study leave" style="width:200px"></div>
+          <div class="field" style="margin-bottom:10px"><label>Days per year</label><input type="number" id="lt-days" value="5" min="0" max="365" style="width:100px"></div>
+          <div class="field" style="margin-bottom:8px"><label>Colour</label><div class="cpick" id="cpick"></div></div>
+          <div class="field" style="margin-bottom:8px"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="lt-accrues" checked style="width:15px;height:15px;accent-color:var(--accent)"><span>Accrues monthly</span></label></div>
+          <div class="field" style="margin-bottom:14px"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="lt-forfeits" checked style="width:15px;height:15px;accent-color:var(--accent)"><span>Unused days forfeited at year-end</span></label></div>
+          <button class="btn primary" id="add-lt-btn">+ Add leave type</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" id="panel-calendar">
+    <div class="card">
+      <div class="cal-hdr">
+        <div class="cal-nav">
+          <button class="btn sm" id="cal-prev">←</button>
+          <span class="cal-title" id="cal-title"></span>
+          <button class="btn sm" id="cal-next">→</button>
+        </div>
+        <div class="field"><label>Employee</label><select id="cal-emp-sel" style="width:180px"></select></div>
+        <div class="field"><label>Leave type</label><select id="cal-lt-sel" style="width:180px"></select></div>
+        <span style="font-size:12px;color:var(--text2);margin-top:18px">Click a working day to toggle</span>
+      </div>
+      <div class="cal-grid" id="cal-grid"></div>
+      <div class="legend" id="cal-legend"></div>
+    </div>
+  </div>
+
+  <div class="panel" id="panel-balances">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;margin-bottom:16px">
+        <div class="form-row" style="margin-bottom:0">
+          <div class="field"><label>Employee</label><select id="bal-emp-sel" style="width:190px"></select></div>
+          <div class="field"><label>Leave year</label><select id="bal-year-sel" style="width:160px"></select></div>
+        </div>
+        <button class="btn" id="export-excel-btn" style="background:#1D6A2A;color:#fff;border-color:#1D6A2A">↓ Export to Excel</button>
+      </div>
+      <div id="bal-sections"></div>
+    </div>
+  </div>
+
+  <div class="panel" id="panel-holidays">
+    <div class="card">
+      <div class="card-title">Public holidays</div>
+      <div class="hol-ytabs" id="hol-ytabs"></div>
+      <div class="two-col">
+        <div>
+          <div class="sec-sub">Holidays for <span id="hol-yr-label"></span></div>
+          <table><thead><tr><th>Date</th><th>Name</th><th></th></tr></thead><tbody id="hol-tbody"></tbody></table>
+        </div>
+        <div>
+          <div class="sec-sub">Add holiday</div>
+          <div class="field" style="margin-bottom:10px"><label>Date</label><input type="date" id="hol-date" style="width:180px"></div>
+          <div class="field" style="margin-bottom:12px"><label>Name</label><input type="text" id="hol-name-inp" placeholder="e.g. Workers Day" style="width:220px"></div>
+          <button class="btn primary" id="add-hol-btn" style="margin-bottom:18px">+ Add holiday</button>
+          <div style="border-top:1px solid var(--border);padding-top:14px">
+            <div class="sec-sub" style="margin-bottom:8px">Add new year</div>
+            <div class="form-row">
+              <div class="field"><label>Year</label><input type="number" id="new-hol-yr" min="2024" max="2040" placeholder="2029" style="width:90px"></div>
+              <div class="field"><label>&nbsp;</label><button class="btn" id="add-hol-yr-btn">Add year</button></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" id="panel-settings">
+    <div class="card" style="border-left:4px solid #EF9F27">
+      <div style="background:#FAEEDA;border-radius:6px;padding:12px;font-size:13px;color:#633806;line-height:1.7">
+        <strong>⚠️ One-time database update required for half-day leave.</strong><br>
+        Run this SQL once in your <strong>Supabase SQL Editor</strong> to enable half-day support:<br>
+        <code style="display:block;margin-top:8px;background:rgba(0,0,0,.08);padding:8px 10px;border-radius:4px;font-size:12px">ALTER TABLE leave_records ADD COLUMN IF NOT EXISTS half_day boolean DEFAULT false;</code>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Accountant access</div>
+      <div class="alert">Accountants get their own separate login with a read-only "Company Overview" tab showing all employees and leave types. They are not employees and do not appear anywhere else in the system.</div>
+      <div class="form-row" style="margin-bottom:14px">
+        <div class="field"><label>Name</label><input type="text" id="acct-reg-name" placeholder="Accountant name" style="width:160px"></div>
+        <div class="field"><label>Email</label><input type="email" id="acct-reg-email" placeholder="accountant@email.com" style="width:200px"></div>
+        <div class="field"><label>Password</label><input type="password" id="acct-reg-pw" placeholder="Min 4 characters" style="width:160px"></div>
+        <div class="field"><label>&nbsp;</label><button class="btn primary" id="acct-reg-btn">+ Create accountant login</button></div>
+      </div>
+      <div class="ovx"><table><thead><tr><th>Name</th><th>Email</th><th></th></tr></thead><tbody id="acct-tbody"></tbody></table></div>
+    </div>
+    <div class="card">
+      <div class="card-title">External admin access</div>
+      <div class="alert">External admins get full admin access (Employees, Leave types, Calendar, Balances, Public holidays, Settings) without being an employee themselves — no leave balance, no manager/team view.</div>
+      <div class="form-row" style="margin-bottom:14px">
+        <div class="field"><label>Name</label><input type="text" id="eadmin-reg-name" placeholder="Admin name" style="width:160px"></div>
+        <div class="field"><label>Email</label><input type="email" id="eadmin-reg-email" placeholder="admin@email.com" style="width:200px"></div>
+        <div class="field"><label>Password</label><input type="password" id="eadmin-reg-pw" placeholder="Min 4 characters" style="width:160px"></div>
+        <div class="field"><label>&nbsp;</label><button class="btn primary" id="eadmin-reg-btn">+ Create admin login</button></div>
+      </div>
+      <div class="ovx"><table><thead><tr><th>Name</th><th>Email</th><th></th></tr></thead><tbody id="eadmin-tbody"></tbody></table></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Company settings</div>
+      <div style="display:flex;flex-direction:column;gap:14px;max-width:400px">
+        <div class="field"><label>My password</label>
+          <div style="display:flex;gap:8px">
+            <input type="password" id="my-pw-inp" placeholder="New password" style="flex:1">
+            <button class="btn sm" id="change-my-pw-btn">Update</button>
+          </div>
+          <span class="hint">Changes the password for your own login</span>
+        </div>
+        <div class="field"><label>Recovery key</label>
+          <div style="display:flex;gap:8px">
+            <input type="text" id="recovery-key-setting" placeholder="Set a recovery key" style="flex:1">
+            <button class="btn sm" id="change-recovery-btn">Update</button>
+          </div>
+          <span class="hint">Used by anyone in the company to reset a forgotten password</span>
+        </div>
+        <div style="border-top:1px solid var(--border);padding-top:14px">
+          <button class="btn danger" id="delete-co-btn">Delete this company</button>
+          <p class="hint" style="margin-top:6px">Permanently deletes all employees, leave records and settings.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="ob-modal-container"></div>
+<div id="req-modal-container"></div>
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════
+// SUPABASE CONFIG
+// ═══════════════════════════════════════════════════
+const SB_URL = 'https://tqdbjxadubnjgbagchuw.supabase.co';
+const MASTER_CODE = 'HW@Leave2025'; // Change this to your preferred system access code
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZGJqeGFkdWJuamdiYWdjaHV3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5NjUyMjYsImV4cCI6MjA5NTU0MTIyNn0.FbcKc_zcTq6k9kA6XyzGhRV06RVaQVmn5UHi_rVhJzA';
+const HEADERS = {'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY};
+
+async function sbGet(table, params){
+  // params can be a raw query string like 'company_id=eq.xxx&order=name.asc'
+  var q = params||'';
+  var r = await fetch(SB_URL+'/rest/v1/'+table+(q?'?'+q:''), {headers:Object.assign({},HEADERS,{'Prefer':'return=representation'})});
+  if(!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+async function sbPost(table, body){
+  var r = await fetch(SB_URL+'/rest/v1/'+table, {method:'POST', headers:Object.assign({},HEADERS,{'Prefer':'return=representation'}), body:JSON.stringify(body)});
+  if(!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+async function sbPatch(table, match, body){
+  var q = Object.entries(match).map(function(e){return e[0]+'=eq.'+encodeURIComponent(e[1]);}).join('&');
+  var r = await fetch(SB_URL+'/rest/v1/'+table+'?'+q, {method:'PATCH', headers:Object.assign({},HEADERS,{'Prefer':'return=representation'}), body:JSON.stringify(body)});
+  if(!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+async function sbDelete(table, match){
+  var q = Object.entries(match).map(function(e){return e[0]+'=eq.'+encodeURIComponent(e[1]);}).join('&');
+  var r = await fetch(SB_URL+'/rest/v1/'+table+'?'+q, {method:'DELETE', headers:HEADERS});
+  if(!r.ok) throw new Error(await r.text());
+  return true;
+}
+
+async function sbUpsert(table, body, onConflict){
+  var r = await fetch(SB_URL+'/rest/v1/'+table+'?on_conflict='+onConflict, {method:'POST', headers:Object.assign({},HEADERS,{'Prefer':'return=representation,resolution=merge-duplicates'}), body:JSON.stringify(body)});
+  if(!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+// ═══════════════════════════════════════════════════
+// COLOURS & DEFAULTS
+// ═══════════════════════════════════════════════════
+const COLORS=[
+  {id:'teal',bg:'#E1F5EE',border:'#5DCAA5',text:'#085041'},
+  {id:'blue',bg:'#E6F1FB',border:'#85B7EB',text:'#0C447C'},
+  {id:'purple',bg:'#EEEDFE',border:'#AFA9EC',text:'#3C3489'},
+  {id:'amber',bg:'#FAEEDA',border:'#EF9F27',text:'#633806'},
+  {id:'coral',bg:'#FAECE7',border:'#F0997B',text:'#712B13'},
+  {id:'pink',bg:'#FBEAF0',border:'#ED93B1',text:'#72243E'},
+  {id:'green',bg:'#EAF3DE',border:'#97C459',text:'#27500A'},
+  {id:'gray',bg:'#F1EFE8',border:'#B4B2A9',text:'#444441'},
+];
+
+const DEFAULT_LT=[
+  {name:'Annual leave',days_per_year:15,accrues:true,forfeits:true,color:'teal',sort_order:0},
+  {name:'Sick leave',days_per_year:30,accrues:false,forfeits:false,color:'amber',sort_order:1},
+  {name:'Family responsibility',days_per_year:3,accrues:false,forfeits:false,color:'blue',sort_order:2},
+  {name:'Maternity / Paternity leave',days_per_year:120,accrues:false,forfeits:false,color:'pink',sort_order:3},
+  {name:'Study leave',days_per_year:10,accrues:false,forfeits:true,color:'purple',sort_order:4},
+];
+
+const DEFAULT_HOL=[
+  {date:'2025-01-01',name:"New Year's Day"},{date:'2025-03-21',name:'Human Rights Day'},
+  {date:'2025-04-18',name:'Good Friday'},{date:'2025-04-19',name:'Easter Saturday'},
+  {date:'2025-04-21',name:'Family Day'},{date:'2025-04-27',name:'Freedom Day'},
+  {date:'2025-05-01',name:"Workers' Day"},{date:'2025-06-16',name:'Youth Day'},
+  {date:'2025-08-09',name:"National Women's Day"},{date:'2025-09-24',name:'Heritage Day'},
+  {date:'2025-12-16',name:'Day of Reconciliation'},{date:'2025-12-25',name:'Christmas Day'},
+  {date:'2025-12-26',name:'Day of Goodwill'},
+  {date:'2026-01-01',name:"New Year's Day"},{date:'2026-03-21',name:'Human Rights Day'},
+  {date:'2026-04-03',name:'Good Friday'},{date:'2026-04-04',name:'Easter Saturday'},
+  {date:'2026-04-06',name:'Family Day'},{date:'2026-04-27',name:'Freedom Day'},
+  {date:'2026-05-01',name:"Workers' Day"},{date:'2026-06-16',name:'Youth Day'},
+  {date:'2026-08-10',name:"National Women's Day"},{date:'2026-09-24',name:'Heritage Day'},
+  {date:'2026-12-16',name:'Day of Reconciliation'},{date:'2026-12-25',name:'Christmas Day'},
+  {date:'2026-12-26',name:'Day of Goodwill'},
+  {date:'2027-01-01',name:"New Year's Day"},{date:'2027-03-22',name:'Human Rights Day'},
+  {date:'2027-03-26',name:'Good Friday'},{date:'2027-03-27',name:'Easter Saturday'},
+  {date:'2027-03-29',name:'Family Day'},{date:'2027-04-27',name:'Freedom Day'},
+  {date:'2027-05-01',name:"Workers' Day"},{date:'2027-06-16',name:'Youth Day'},
+  {date:'2027-08-09',name:"National Women's Day"},{date:'2027-09-24',name:'Heritage Day'},
+  {date:'2027-12-16',name:'Day of Reconciliation'},{date:'2027-12-25',name:'Christmas Day'},
+  {date:'2027-12-26',name:'Day of Goodwill'},
+];
+
+// ═══════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════
+var currentCompany=null, employees=[], leaveTypes=[], holidays=[], leaveRecords=[], openingBalances=[], accountants=[], externalAdmins=[], currentUser=null, currentAccountant=null, currentExternalAdmin=null, managerEmployees=[];
+var calYear, calMonth, activeHolYear, selColor='teal';
+
+// ═══════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════
+var MN=["January","February","March","April","May","June","July","August","September","October","November","December"];
+var MS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+function pad(n){return n<10?'0'+n:''+n}
+function dk(y,m,d){return y+'-'+pad(m)+'-'+pad(d)}
+function isWeekend(y,m,d){var dw=new Date(y,m-1,d).getDay();return dw===0||dw===6}
+function dim(y,m){return new Date(y,m,0).getDate()}
+function isLeapYear(y){return(y%4===0&&y%100!==0)||y%400===0}
+function isHoliday(y,m,d){var k=dk(y,m,d);return holidays.some(function(h){return h.date===k;})}
+function holName(y,m,d){var k=dk(y,m,d);var h=holidays.find(function(h){return h.date===k;});return h?h.name:''}
+function curLeaveYear(){var n=new Date(),y=n.getFullYear(),mo=n.getMonth()+1;return mo>=3?y:y-1}
+function lyMonths(yr){var ms=[];for(var m=3;m<=12;m++)ms.push({y:yr,m:m});for(var m=1;m<=2;m++)ms.push({y:yr+1,m:m});return ms;}
+function getColor(id){return COLORS.find(function(c){return c.id===id;})||COLORS[0]}
+function formatDate(str){var p=str.split('-');return parseInt(p[2])+' '+MN[parseInt(p[1])-1]+' '+p[0];}
+function roundToUnit(v,u){if(!u||u<=0)return v;return Math.round(v/u)*u;}
+function fmtBal(v,u){
+  // Round to 2 decimal places
+  // Unit rounding removed: causes correct values like 0.25 to snap to 0
+  return +parseFloat(v).toFixed(2);
+}
+function toast(msg){var t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(function(){t.classList.remove('show');},2500);}
+function setSaving(msg){var s=document.getElementById('save-indicator');if(s)s.textContent=msg;}
+
+// ═══════════════════════════════════════════════════
+// LEAVE CALCULATIONS
+// ═══════════════════════════════════════════════════
+function getEmpLeave(empId){
+  return leaveRecords.filter(function(r){return r.employee_id===empId;});
+}
+function takenByType(empId,y,m,ltId){
+  var c=0,d=dim(y,m);
+  for(var i=1;i<=d;i++){
+    var k=dk(y,m,i);
+    var rec=leaveRecords.find(function(r){return r.employee_id===empId&&r.date===k&&r.leave_type_id===ltId;});
+    if(rec) c+=(rec.half_day?0.5:1);
+  }
+  return c;
+}
+function totalTakenByType(empId,ltId,ly){
+  return lyMonths(ly).reduce(function(s,r){return s+takenByType(empId,r.y,r.m,ltId);},0);
+}
+function getEntitlement(emp,lt){
+  var ent=emp.entitlements&&emp.entitlements[lt.id];
+  return ent!==undefined?ent:lt.days_per_year;
+}
+
+function getOpeningBalance(empId,ltId,ly){
+  var ob=openingBalances.find(function(o){
+    return o.employee_id===empId&&o.leave_type_id===ltId&&o.leave_year===ly;
+  });
+  return ob?+ob.balance:null; // null means use default (0)
+}
+function isFirstLY(emp,ly){
+  if(!emp.start_date)return false;
+  var p=emp.start_date.split('-').map(Number);
+  var fy=p[1]>=3?p[0]:p[0]-1;
+  return ly===fy;
+}
+function monthOnOrAfterStart(y,m,startDate){
+  if(!startDate)return true;
+  var p=startDate.split('-').map(Number);
+  if(y>p[0])return true;
+  if(y===p[0]&&m>=p[1])return true;
+  return false;
+}
+function startFrac(y,m,startDate){
+  if(!startDate)return 1;
+  var p=startDate.split('-').map(Number);
+  if(p[0]!==y||p[1]!==m)return 1;
+  return Math.max(0,(dim(y,m)-p[2]+1)/dim(y,m));
+}
+function computeBalances(emp,lt,ly){
+  var ent=getEntitlement(emp,lt);
+  var ma=lt.accrues?(ent/12):0;
+  var isFirst=isFirstLY(emp,ly);
+  // Check for manual opening balance override
+  var manualOpening=getOpeningBalance(emp.id,lt.id,ly);
+  var opening=0;
+  if(manualOpening!==null){
+    // Manual opening balance set by admin
+    opening=manualOpening;
+  } else if(!lt.accrues){
+    if(isFirst&&emp.start_date){
+      var ms=lyMonths(ly).filter(function(r){return monthOnOrAfterStart(r.y,r.m,emp.start_date);});
+      opening=+(ent*(ms.length/12)).toFixed(4);
+    }else{opening=ent;}
+  }
+  var rows=[];
+  lyMonths(ly).forEach(function(r){
+    var started=monthOnOrAfterStart(r.y,r.m,emp.start_date);
+    var taken=started?takenByType(emp.id,r.y,r.m,lt.id):0;
+    var accrued=0;
+    if(lt.accrues&&started){
+      if(isFirst&&emp.start_date){
+        var p=emp.start_date.split('-').map(Number);
+        accrued=(p[0]===r.y&&p[1]===r.m)?(+(ma*startFrac(r.y,r.m,emp.start_date)).toFixed(4)):(+ma.toFixed(4));
+      }else{accrued=+ma.toFixed(4);}
+    }
+    var closing=+(opening+accrued-taken).toFixed(4);
+    rows.push({y:r.y,m:r.m,opening:+opening.toFixed(4),accrued:accrued,taken:taken,closing:closing,started:started,unit:ma||1});
+    opening=closing; // carry forward negative balances
+  });
+  return rows;
+}
+function curBal(emp,lt){
+  var ly=curLeaveYear();
+  var rows=computeBalances(emp,lt,ly);
+  var n=new Date(),cy=n.getFullYear(),cm=n.getMonth()+1;
+  var row=rows.find(function(r){return r.y===cy&&r.m===cm;});
+  var raw=row?row.closing:rows[rows.length-1].closing;
+  return +parseFloat(raw).toFixed(2);
+}
+
+// ═══════════════════════════════════════════════════
+// SCREEN MANAGEMENT
+// ═══════════════════════════════════════════════════
+function showScreen(name){
+  document.getElementById('login-screen').className=(name==='login')?'':'gone';
+  document.getElementById('app').className=(name==='app')?'visible':'';
+}
+function showLoginStep(step){
+  ['step-select','step-new','step-login'].forEach(function(id){
+    document.getElementById(id).style.display=(id==='step-'+step)?'':'none';
+  });
+}
+function setLoginErr(msg){var e=document.getElementById('login-err');e.textContent=msg;e.className=msg?'lerr show':'lerr';}
+
+// ═══════════════════════════════════════════════════
+// LOAD COMPANY DATA
+// ═══════════════════════════════════════════════════
+async function loadCompanyData(company){
+  currentCompany=company;
+  var coId=company.id;
+  // Load employees, leave types, holidays, managers in parallel
+  var results=await Promise.all([
+    sbGet('employees','company_id=eq.'+coId+'&order=name.asc'),
+    sbGet('leave_types','company_id=eq.'+coId+'&order=sort_order.asc'),
+    sbGet('public_holidays','company_id=eq.'+coId+'&order=date.asc'),
+    sbGet('accountants','company_id=eq.'+coId+'&order=name.asc'),
+    sbGet('external_admins','company_id=eq.'+coId+'&order=name.asc'),
+  ]);
+  employees=results[0];
+  leaveTypes=results[1];
+  holidays=results[2];
+  accountants=results[3];
+  externalAdmins=results[4];
+  leaveRecords=[];
+  // Load entitlements and leave records using actual employee IDs
+  if(employees.length){
+    var empIds=employees.map(function(e){return e.id;}).join(',');
+    var r2=await Promise.all([
+      sbGet('entitlements','employee_id=in.('+empIds+')'),
+      sbGet('leave_records','employee_id=in.('+empIds+')'),
+      sbGet('opening_balances','employee_id=in.('+empIds+')'),
+    ]);
+    var ents=r2[0];
+    leaveRecords=r2[1];
+    openingBalances=r2[2];
+    // Attach entitlements to employees
+    employees.forEach(function(emp){
+      emp.entitlements={};
+      ents.filter(function(e){return e.employee_id===emp.id;}).forEach(function(e){emp.entitlements[e.leave_type_id]=e.days_per_year;});
+    });
+  } else {
+    employees.forEach(function(emp){emp.entitlements={};});
+    openingBalances=[];
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// TABS
+// ═══════════════════════════════════════════════════
+function showTab(name){
+  document.querySelectorAll('.tab').forEach(function(t){t.classList.toggle('active',t.dataset.tab===name);});
+  document.querySelectorAll('.panel').forEach(function(p){p.classList.toggle('active',p.id==='panel-'+name);});
+  if(name==='calendar')renderCalendar();
+  if(name==='balances'){populateBalYears();renderBalance();}
+  if(name==='holidays')renderHolidays();
+  if(name==='leavetypes')renderLeaveTypes();
+  if(name==='employees')renderEmployees();
+  if(name==='settings')renderSettings();
+  if(name==='myleave')renderEmpView(currentUser.id);
+  if(name==='myteam'){populateMgrYears();renderManagerView();}
+  if(name==='overview'){populateAvYears();renderAccountantView();}
+}
+
+// ═══════════════════════════════════════════════════
+// COLOUR PICKER
+// ═══════════════════════════════════════════════════
+function buildCpick(){
+  var el=document.getElementById('cpick');
+  el.innerHTML=COLORS.map(function(c){
+    return'<div class="cpick-dot" data-cid="'+c.id+'" style="background:'+c.bg+';border-color:'+(selColor===c.id?c.border:'transparent')+'">'+
+    (selColor===c.id?'<span style="color:'+c.text+';font-size:13px">✓</span>':'')+'</div>';
+  }).join('');
+  el.querySelectorAll('.cpick-dot').forEach(function(d){d.addEventListener('click',function(){selColor=d.dataset.cid;buildCpick();});});
+}
+
+// ═══════════════════════════════════════════════════
+// LEAVE TYPES
+// ═══════════════════════════════════════════════════
+function renderLeaveTypes(){
+  var tb=document.getElementById('lt-tbody');
+  tb.innerHTML=leaveTypes.map(function(lt){
+    var c=getColor(lt.color);
+    return'<tr><td><span class="lt-pill" style="background:'+c.bg+';color:'+c.text+';border:1px solid '+c.border+'">'+lt.name+'</span></td>'
+      +'<td class="num">'+lt.days_per_year+'</td>'
+      +'<td>'+(lt.accrues?'✓ Monthly':lt.forfeits?'Full, forfeits':'Full, carries')+'</td>'
+      +'<td><div style="width:16px;height:16px;border-radius:4px;background:'+c.bg+';border:2px solid '+c.border+'"></div></td>'
+      +'<td><button class="btn sm danger" data-ltid="'+lt.id+'">🗑</button></td></tr>';
+  }).join('')||'<tr><td colspan="5" class="empty">No leave types.</td></tr>';
+  tb.querySelectorAll('button[data-ltid]').forEach(function(b){b.addEventListener('click',function(){removeLT(b.dataset.ltid);});});
+}
+
+async function addLT(){
+  var name=document.getElementById('lt-name').value.trim();
+  var days=parseFloat(document.getElementById('lt-days').value)||0;
+  var accrues=document.getElementById('lt-accrues').checked;
+  var forfeits=document.getElementById('lt-forfeits').checked;
+  if(!name){alert('Please enter a name.');return;}
+  setSaving('Saving...');
+  try{
+    var r=await sbPost('leave_types',[{company_id:currentCompany.id,name:name,days_per_year:days,accrues:accrues,forfeits:forfeits,color:selColor,sort_order:leaveTypes.length}]);
+    leaveTypes.push(r[0]);
+    document.getElementById('lt-name').value='';
+    renderLeaveTypes();renderEmployees();refreshLTSelects();
+    setSaving('✓ Saved');toast('Leave type added');
+  }catch(e){setSaving('');alert('Error: '+e.message);}
+}
+
+async function removeLT(id){
+  var lt=leaveTypes.find(function(l){return l.id===id;});
+  if(!lt||!confirm('Remove "'+lt.name+'"? All leave records of this type will also be deleted.'))return;
+  setSaving('Saving...');
+  try{
+    await sbDelete('leave_types',{id:id});
+    leaveTypes=leaveTypes.filter(function(l){return l.id!==id;});
+    leaveRecords=leaveRecords.filter(function(r){return r.leave_type_id!==id;});
+    renderLeaveTypes();renderEmployees();refreshLTSelects();
+    setSaving('✓ Saved');toast('Leave type removed');
+  }catch(e){setSaving('');alert('Error: '+e.message);}
+}
+
+// ═══════════════════════════════════════════════════
+// EMPLOYEES
+// ═══════════════════════════════════════════════════
+async function addEmployee(){
+  var name=document.getElementById('inp-name').value.trim();
+  var start=document.getElementById('inp-start').value||null;
+  if(!name){alert('Please enter a name.');return;}
+  setSaving('Saving...');
+  try{
+    var r=await sbPost('employees',[{company_id:currentCompany.id,name:name,start_date:start}]);
+    var emp=r[0]; emp.entitlements={};
+    // Create default entitlements
+    var ents=leaveTypes.map(function(lt){return{employee_id:emp.id,leave_type_id:lt.id,days_per_year:lt.days_per_year};});
+    if(ents.length){
+      var er=await sbPost('entitlements',ents);
+      er.forEach(function(e){emp.entitlements[e.leave_type_id]=e.days_per_year;});
+    }
+    employees.push(emp);
+    document.getElementById('inp-name').value='';
+    renderEmployees();refreshEmpSelects();
+    setSaving('✓ Saved');toast('Employee added');
+  }catch(e){setSaving('');alert('Error: '+e.message);}
+}
+
+async function removeEmployee(id){
+  if(!confirm('Remove this employee and all their leave records?'))return;
+  setSaving('Saving...');
+  try{
+    await sbDelete('employees',{id:id});
+    employees=employees.filter(function(e){return e.id!==id;});
+    leaveRecords=leaveRecords.filter(function(r){return r.employee_id!==id;});
+    renderEmployees();refreshEmpSelects();
+    setSaving('✓ Saved');toast('Employee removed');
+  }catch(e){setSaving('');alert('Error: '+e.message);}
+}
+
+async function updateEmpField(empId, field, value){
+  var v = (typeof value === 'boolean') ? value : (value || null);
+  setSaving('Saving...');
+  try{
+    await sbPatch('employees',{id:empId},{[field]:v});
+    var emp=employees.find(function(e){return e.id===empId;});
+    if(emp)emp[field]=v;
+    setSaving('✓ Saved');
+  }catch(e){setSaving('');alert('Error: '+e.message);}
+}
+
+async function updateEntitlement(empId, ltId, val){
+  var days=parseFloat(val)||0;
+  setSaving('Saving...');
+  try{
+    await sbUpsert('entitlements',{employee_id:empId,leave_type_id:ltId,days_per_year:days},'employee_id,leave_type_id');
+    var emp=employees.find(function(e){return e.id===empId;});
+    if(emp){emp.entitlements=emp.entitlements||{};emp.entitlements[ltId]=days;}
+    setSaving('✓ Saved');
+  }catch(e){setSaving('');alert('Error: '+e.message);}
+}
+
+function renderEmployees(){
+  var thead=document.getElementById('emp-thead');
+  var tbody=document.getElementById('emp-tbody');
+  var ly=curLeaveYear();
+  thead.innerHTML='<th>Name</th><th>Start date</th><th>Employee email</th><th>Manager 1 email</th><th>Manager 2 email</th><th>Password</th><th>Admin</th>'
+    +leaveTypes.map(function(lt){var c=getColor(lt.color);return'<th><span class="lt-pill" style="background:'+c.bg+';color:'+c.text+';border:1px solid '+c.border+';font-size:10px">'+lt.name+'</span><br><span style="font-size:10px;color:var(--text3)">days/yr</span></th>';}).join('')
+    +'<th>Balances</th><th></th>';
+  if(!employees.length){tbody.innerHTML='<tr><td colspan="'+(leaveTypes.length+6)+'" class="empty">No employees yet.</td></tr>';return;}
+  tbody.innerHTML=employees.map(function(emp){
+    var ltCols=leaveTypes.map(function(lt){
+      var v=emp.entitlements&&emp.entitlements[lt.id]!==undefined?emp.entitlements[lt.id]:lt.days_per_year;
+      return'<td class="num"><input type="number" min="0" max="365" step="0.5" value="'+v+'" data-empid="'+emp.id+'" data-ltid="'+lt.id+'" class="ent-inp" style="width:58px;text-align:right;font-size:12px;padding:4px 5px"></td>';
+    }).join('');
+    var bals=leaveTypes.map(function(lt){var c=getColor(lt.color);var b=curBal(emp,lt);return'<span class="lt-pill" style="background:'+c.bg+';color:'+c.text+';border:1px solid '+c.border+';margin:1px">'+lt.name.split(' ')[0]+': '+b+'</span>';}).join(' ');
+    return'<tr>'
+      +'<td><strong>'+emp.name+'</strong></td>'
+      +'<td><input type="date" value="'+(emp.start_date||'')+'" data-empid="'+emp.id+'" class="sd-inp" style="font-size:12px;padding:4px 6px;width:135px"></td>'
+      +'<td><input type="email" value="'+(emp.email||'')+'" data-empid="'+emp.id+'" class="em-inp" placeholder="employee@email.com" style="width:160px;font-size:12px;padding:4px 6px"></td>'
+      +'<td><input type="email" value="'+(emp.manager_email||'')+'" data-empid="'+emp.id+'" class="mgr-inp" placeholder="manager1@email.com" style="width:150px;font-size:12px;padding:4px 6px"></td>'
+      +'<td><input type="email" value="'+(emp.manager_email2||'')+'" data-empid="'+emp.id+'" class="mgr2-inp" placeholder="manager2@email.com" style="width:150px;font-size:12px;padding:4px 6px"></td>'
+      +'<td><input type="text" value="'+(emp.password||'')+'" data-empid="'+emp.id+'" class="pw-inp" placeholder="Set password" style="width:110px;font-size:12px;padding:4px 6px"></td>'
+      +'<td style="text-align:center"><input type="checkbox" '+(emp.is_admin?'checked':'')+' data-empid="'+emp.id+'" class="admin-chk" style="width:16px;height:16px;accent-color:var(--accent)"></td>'
+      +ltCols+'<td style="font-size:12px;line-height:1.9">'+bals+'</td>'
+      +'<td style="white-space:nowrap"><button class="btn sm" data-ob-empid="'+emp.id+'" style="margin-right:4px">📋 Balances</button><button class="btn sm danger" data-empid="'+emp.id+'">🗑</button></td></tr>';
+  }).join('');
+  tbody.querySelectorAll('.ent-inp').forEach(function(inp){inp.addEventListener('change',function(){updateEntitlement(inp.dataset.empid,inp.dataset.ltid,inp.value);});});
+  tbody.querySelectorAll('.sd-inp').forEach(function(inp){inp.addEventListener('change',function(){updateEmpField(inp.dataset.empid,'start_date',inp.value);});});
+  tbody.querySelectorAll('.em-inp').forEach(function(inp){inp.addEventListener('change',function(){updateEmpField(inp.dataset.empid,'email',inp.value.trim());});});
+  tbody.querySelectorAll('.mgr-inp').forEach(function(inp){inp.addEventListener('change',function(){updateEmpField(inp.dataset.empid,'manager_email',inp.value.trim());});});
+  tbody.querySelectorAll('.mgr2-inp').forEach(function(inp){inp.addEventListener('change',function(){updateEmpField(inp.dataset.empid,'manager_email2',inp.value.trim());});});
+  tbody.querySelectorAll('.pw-inp').forEach(function(inp){inp.addEventListener('change',function(){updateEmpField(inp.dataset.empid,'password',inp.value.trim());});});
+  tbody.querySelectorAll('.admin-chk').forEach(function(inp){inp.addEventListener('change',function(){updateEmpField(inp.dataset.empid,'is_admin',inp.checked);});});
+  tbody.querySelectorAll('button[data-empid]').forEach(function(b){b.addEventListener('click',function(){removeEmployee(b.dataset.empid);});});
+  tbody.querySelectorAll('button[data-ob-empid]').forEach(function(b){b.addEventListener('click',function(){showOpeningBalanceModal(b.dataset.obEmpid);});});
+}
+
+// ═══════════════════════════════════════════════════
+// SELECTS
+// ═══════════════════════════════════════════════════
+function refreshEmpSelects(){
+  ['cal-emp-sel','bal-emp-sel'].forEach(function(sid){
+    var sel=document.getElementById(sid);
+    var prev=sel.value;
+    sel.innerHTML=employees.map(function(e){return'<option value="'+e.id+'">'+e.name+'</option>';}).join('');
+    if(prev&&employees.find(function(e){return e.id===prev;}))sel.value=prev;
+  });
+}
+function refreshLTSelects(){
+  var sel=document.getElementById('cal-lt-sel');
+  var prev=sel.value;
+  sel.innerHTML=leaveTypes.map(function(lt){return'<option value="'+lt.id+'">'+lt.name+'</option>';}).join('');
+  if(prev&&leaveTypes.find(function(l){return l.id===prev;}))sel.value=prev;
+}
+function populateBalYears(){
+  var sel=document.getElementById('bal-year-sel');
+  var prev=parseInt(sel.value);
+  var ly=curLeaveYear();
+  var yrs=[];for(var y=ly-2;y<=ly+2;y++)yrs.push(y);
+  sel.innerHTML=yrs.map(function(y){return'<option value="'+y+'"'+(y===ly?' selected':'')+'>Mar '+y+' – Feb '+(y+1)+'</option>';}).join('');
+  if(prev&&yrs.indexOf(prev)>=0)sel.value=prev;
+}
+
+// ═══════════════════════════════════════════════════
+// CALENDAR
+// ═══════════════════════════════════════════════════
+function renderCalendar(){
+  var grid=document.getElementById('cal-grid');
+  document.getElementById('cal-title').textContent=MN[calMonth-1]+' '+calYear;
+  if(!employees.length){grid.innerHTML='<div class="empty" style="grid-column:span 7">Add an employee first.</div>';return;}
+  var emp=employees.find(function(e){return e.id===document.getElementById('cal-emp-sel').value;})||employees[0];
+  var y=calYear,m=calMonth,d=dim(y,m),fd=new Date(y,m-1,1).getDay();
+  var h=['Su','Mo','Tu','We','Th','Fr','Sa'].map(function(d){return'<div class="cal-dh">'+d+'</div>';}).join('');
+  for(var i=0;i<fd;i++)h+='<div class="cal-day other"></div>';
+  for(var dd=1;dd<=d;dd++){
+    var k=dk(y,m,dd);
+    var wk=isWeekend(y,m,dd),hol=isHoliday(y,m,dd);
+    var bs=emp.start_date&&(new Date(y,m-1,dd)<new Date(emp.start_date));
+    var rec=leaveRecords.find(function(r){return r.employee_id===emp.id&&r.date===k;});
+    var lt=rec?leaveTypes.find(function(l){return l.id===rec.leave_type_id;}):null;
+    var cls='cal-day';var sty='';
+    if(wk)cls+=' weekend';else if(hol)cls+=' holiday';else if(bs)cls+=' before-start';else cls+=' workday';
+    if(lt&&!bs){var c=getColor(lt.color);sty='background:'+(rec.half_day?'linear-gradient(135deg,'+c.bg+' 50%,white 50%)':c.bg)+';border-color:'+c.border+';';}
+    var tag='';
+    if(hol)tag='<span class="day-tag" style="background:#FAECE7;color:#8B3A1A">'+holName(y,m,dd)+'</span>';
+    else if(bs)tag='<span class="day-tag" style="color:#ccc">Before start</span>';
+    else if(lt){var c2=getColor(lt.color);tag='<span class="day-tag" style="background:'+c2.bg+';color:'+c2.text+'">'+(rec.half_day?'½ ':'')+lt.name+'</span>';}
+    var click=(!wk&&!hol&&!bs)?'data-k="'+k+'" data-empid="'+emp.id+'"':'';
+    h+='<div class="'+cls+'" '+click+' style="'+sty+'"><span class="day-num">'+dd+'</span>'+tag+'</div>';
+  }
+  grid.innerHTML=h;
+  grid.querySelectorAll('[data-k]').forEach(function(cell){
+    cell.addEventListener('click',function(){toggleLeave(cell.dataset.empid,cell.dataset.k);});
+  });
+  var leg=document.getElementById('cal-legend');
+  leg.innerHTML='<div class="leg"><div class="leg-dot" style="background:#F0EFE9"></div>Weekend</div>'
+    +'<div class="leg"><div class="leg-dot" style="background:#FAECE7;border-color:#F0997B"></div>Public holiday</div>'
+    +leaveTypes.map(function(lt){var c=getColor(lt.color);return'<div class="leg"><div class="leg-dot" style="background:'+c.bg+';border-color:'+c.border+'"></div>'+lt.name+'</div>';}).join('')
+    +'<div class="leg" style="margin-top:4px;width:100%;color:var(--text3);font-size:11px">Click once = full day · Click again = ½ day · Click again = remove</div>';
+}
+
+async function toggleLeave(empId,dateKey){
+  var selLtId=document.getElementById('cal-lt-sel').value;
+  var existing=leaveRecords.find(function(r){return r.employee_id===empId&&r.date===dateKey;});
+  setSaving('Saving...');
+  try{
+    if(!existing){
+      // No record -> add full day
+      var r=await sbPost('leave_records',[{employee_id:empId,leave_type_id:selLtId,date:dateKey,half_day:false}]);
+      leaveRecords.push(r[0]);
+    } else if(existing.leave_type_id===selLtId&&!existing.half_day){
+      // Full day same type -> convert to half day
+      await sbPatch('leave_records',{id:existing.id},{half_day:true});
+      existing.half_day=true;
+    } else if(existing.leave_type_id===selLtId&&existing.half_day){
+      // Half day same type -> remove
+      await sbDelete('leave_records',{id:existing.id});
+      leaveRecords=leaveRecords.filter(function(r){return r.id!==existing.id;});
+    } else {
+      // Different type -> switch to new type, full day
+      await sbPatch('leave_records',{id:existing.id},{leave_type_id:selLtId,half_day:false});
+      existing.leave_type_id=selLtId;
+      existing.half_day=false;
+    }
+    renderCalendar();renderEmployees();
+    setSaving('✓ Saved');
+  }catch(e){setSaving('');alert('Error: '+e.message);}
+}
+
+// ═══════════════════════════════════════════════════
+// BALANCES
+// ═══════════════════════════════════════════════════
+function renderBalance(){
+  var sec=document.getElementById('bal-sections');
+  if(!employees.length){sec.innerHTML='<div class="empty">No employees yet.</div>';return;}
+  var emp=employees.find(function(e){return e.id===document.getElementById('bal-emp-sel').value;})||employees[0];
+  var ly=parseInt(document.getElementById('bal-year-sel').value)||curLeaveYear();
+  var n=new Date(),cy=n.getFullYear(),cm=n.getMonth()+1;
+  var isFirst=isFirstLY(emp,ly);
+  sec.innerHTML=leaveTypes.map(function(lt){
+    var c=getColor(lt.color);
+    var rows=computeBalances(emp,lt,ly);
+    var taken=rows.reduce(function(s,r){return s+r.taken;},0);
+    var finalBal=rows[rows.length-1].closing;
+    var forfeited=lt.forfeits&&finalBal>0?+finalBal.toFixed(2):0;
+    var bal=curBal(emp,lt);
+    var ent=getEntitlement(emp,lt);
+    var u=lt.accrues?(ent/12):1;
+    var metrics='<div class="metrics">'
+      +'<div class="metric"><div class="metric-label">Entitlement</div><div class="metric-val">'+ent+'</div></div>'
+      +'<div class="metric"><div class="metric-label">'+(lt.accrues?'Monthly accrual':'Grant type')+'</div><div class="metric-val good" style="font-size:16px;margin-top:4px">'+(lt.accrues?fmtBal(ent/12,u)+'/mo':'Full at start')+'</div></div>'
+      +'<div class="metric"><div class="metric-label">Days taken</div><div class="metric-val">'+taken+'</div></div>'
+      +'<div class="metric"><div class="metric-label">Current balance</div><div class="metric-val '+(bal<0?'warn':'good')+'">'+bal+'</div></div>'
+      +'<div class="metric"><div class="metric-label">'+(lt.forfeits?'Forfeited at year-end':'Carries over')+'</div><div class="metric-val '+(lt.forfeits&&forfeited>0?'warn':'')+'">'+  (lt.forfeits?forfeited:'N/A')+'</div></div>'
+      +'</div>';
+    var tbl='<div class="ovx"><table><thead><tr><th>Month</th><th class="num">Opening</th><th class="num">'+(lt.accrues?'Accrued':'Granted')+'</th><th class="num">Taken</th><th class="num">Closing</th></tr></thead><tbody>'
+      +rows.map(function(r){
+        var isCur=r.y===cy&&r.m===cm;
+        var ns=!r.started;
+        var op=fmtBal(r.opening,r.unit),ac=fmtBal(r.accrued,r.unit),cl=fmtBal(r.closing,r.unit);
+        return'<tr'+(isCur?' style="font-weight:500"':'')+(ns?' style="opacity:.4"':'')+'>'
+          +'<td>'+MS[r.m-1]+' '+r.y+(isCur?' <span class="badge current">current</span>':'')+(ns?' <span class="badge ns">before start</span>':'')+'</td>'
+          +'<td class="num">'+(ns?'—':op)+'</td>'
+          +'<td class="num">'+(ns?'—':lt.accrues?(r.accrued>0?'+'+ac:'—'):(r.opening>0?'+'+op:'—'))+'</td>'
+          +'<td class="num">'+(ns||r.taken===0?'—':'−'+r.taken)+'</td>'
+          +'<td class="num" style="color:'+(r.closing<0?'var(--danger)':r.closing>0?'var(--accent)':'inherit')+'">'+(ns?'—':cl)+'</td>'
+          +'</tr>';
+      }).join('')
+      +'<tr class="total-row"><td>Year-end'+(isFirst?' <span class="badge ns">first year</span>':'')+'</td><td class="num">—</td><td class="num">'+(lt.accrues?ent:'—')+'</td><td class="num">'+taken+'</td><td class="num">'+fmtBal(finalBal,u)+(forfeited>0?' <span class="badge forfeited">forfeited</span>':'')+'</td></tr>'
+      +'</tbody></table></div>';
+    return'<div class="card" style="border-left:4px solid '+c.border+'">'
+      +'<div class="card-title"><span class="lt-pill" style="background:'+c.bg+';color:'+c.text+';border:1px solid '+c.border+';font-size:13px">'+lt.name+'</span>'
+      +'<span style="font-size:12px;color:var(--text3);font-weight:400;margin-left:8px">'+(lt.accrues?'Monthly accrual':'Full grant')+' · '+(lt.forfeits?'Forfeits':'Carries over')+'</span>'
+      +(isFirst?' <span style="font-size:11px;background:#E6F1FB;color:#0C447C;border-radius:4px;padding:1px 6px;margin-left:6px">Pro-rated first year</span>':'')+'</div>'
+      +metrics+tbl+'</div>';
+  }).join('')||'<div class="empty">No leave types defined.</div>';
+}
+
+// ═══════════════════════════════════════════════════
+// HOLIDAYS
+// ═══════════════════════════════════════════════════
+function renderHolidays(){
+  var yrs=[...new Set(holidays.map(function(h){return parseInt(h.date.split('-')[0]);}))].sort();
+  if(!activeHolYear||yrs.indexOf(activeHolYear)<0)activeHolYear=yrs[yrs.length-1]||new Date().getFullYear();
+  var ytabs=document.getElementById('hol-ytabs');
+  ytabs.innerHTML=yrs.map(function(y){return'<button class="hol-ytab'+(y===activeHolYear?' active':'')+'" data-yr="'+y+'">'+y+'</button>';}).join('');
+  ytabs.querySelectorAll('button').forEach(function(b){b.addEventListener('click',function(){activeHolYear=parseInt(b.dataset.yr);renderHolidays();});});
+  document.getElementById('hol-yr-label').textContent=activeHolYear;
+  var list=holidays.filter(function(h){return parseInt(h.date.split('-')[0])===activeHolYear;}).sort(function(a,b){return a.date.localeCompare(b.date);});
+  var tb=document.getElementById('hol-tbody');
+  tb.innerHTML=list.length?list.map(function(h){
+    return'<tr><td>'+formatDate(h.date)+'</td><td>'+h.name+'</td><td><button class="btn sm danger" data-holid="'+h.id+'">🗑</button></td></tr>';
+  }).join(''):'<tr><td colspan="3" class="empty">No holidays for this year.</td></tr>';
+  tb.querySelectorAll('button[data-holid]').forEach(function(b){b.addEventListener('click',function(){removeHoliday(b.dataset.holid);});});
+  var di=document.getElementById('hol-date');
+  if(!di.value)di.value=activeHolYear+'-01-01';
+}
+
+async function addHoliday(){
+  var date=document.getElementById('hol-date').value;
+  var name=document.getElementById('hol-name-inp').value.trim();
+  if(!date||!name){alert('Please enter a date and name.');return;}
+  if(holidays.some(function(h){return h.date===date;})){alert('Holiday on this date already exists.');return;}
+  setSaving('Saving...');
+  try{
+    var r=await sbPost('public_holidays',[{company_id:currentCompany.id,date:date,name:name}]);
+    holidays.push(r[0]);
+    holidays.sort(function(a,b){return a.date.localeCompare(b.date);});
+    activeHolYear=parseInt(date.split('-')[0]);
+    document.getElementById('hol-name-inp').value='';
+    renderHolidays();setSaving('✓ Saved');toast('Holiday added');
+  }catch(e){setSaving('');alert('Error: '+e.message);}
+}
+
+async function removeHoliday(id){
+  setSaving('Saving...');
+  try{
+    await sbDelete('public_holidays',{id:id});
+    holidays=holidays.filter(function(h){return h.id!==id;});
+    renderHolidays();setSaving('✓ Saved');toast('Holiday removed');
+  }catch(e){setSaving('');alert('Error: '+e.message);}
+}
+
+async function addHolidayYear(){
+  var y=parseInt(document.getElementById('new-hol-yr').value);
+  if(!y||y<2020||y>2040){alert('Enter a year between 2020 and 2040.');return;}
+  if(holidays.some(function(h){return parseInt(h.date.split('-')[0])===y;})){alert('Holidays for this year already exist.');return;}
+  toast('Year '+y+' added — now add holidays for it using the form.');
+  activeHolYear=y;
+  document.getElementById('hol-date').value=y+'-01-01';
+  renderHolidays();
+}
+
+// ═══════════════════════════════════════════════════
+// SETTINGS
+// ═══════════════════════════════════════════════════
+function renderSettings(){
+  document.getElementById('recovery-key-setting').value=currentCompany.recovery_key||'';
+  renderAccountantAccess();
+  renderExternalAdminAccess();
+}
+
+function renderExternalAdminAccess(){
+  var tb=document.getElementById('eadmin-tbody');
+  if(!externalAdmins.length){tb.innerHTML='<tr><td colspan="3" class="empty">No external admin logins yet.</td></tr>';return;}
+  tb.innerHTML=externalAdmins.map(function(a){
+    return'<tr><td>'+a.name+'</td><td>'+a.email+'</td><td><button class="btn sm danger" data-eadminid="'+a.id+'">Remove</button></td></tr>';
+  }).join('');
+  tb.querySelectorAll('button[data-eadminid]').forEach(function(b){
+    b.addEventListener('click',function(){removeExternalAdmin(b.dataset.eadminid);});
+  });
+}
+
+async function registerExternalAdmin(){
+  var name=document.getElementById('eadmin-reg-name').value.trim();
+  var email=document.getElementById('eadmin-reg-email').value.trim().toLowerCase();
+  var pw=document.getElementById('eadmin-reg-pw').value.trim();
+  if(!name){alert('Please enter a name.');return;}
+  if(!email){alert('Please enter an email address.');return;}
+  if(!pw||pw.length<4){alert('Password must be at least 4 characters.');return;}
+  if(externalAdmins.some(function(a){return a.email.toLowerCase()===email;})){alert('An admin with this email already exists.');return;}
+  setSaving('Saving...');
+  try{
+    var r=await sbPost('external_admins',[{company_id:currentCompany.id,name:name,email:email,password:pw}]);
+    externalAdmins.push(r[0]);
+    document.getElementById('eadmin-reg-name').value='';
+    document.getElementById('eadmin-reg-email').value='';
+    document.getElementById('eadmin-reg-pw').value='';
+    renderExternalAdminAccess();
+    setSaving('\u2713 Saved');toast('Admin login created');
+  }catch(e){setSaving('');alert('Error: '+e.message);}
+}
+
+async function removeExternalAdmin(id){
+  var a=externalAdmins.find(function(aa){return aa.id===id;});
+  if(!a||!confirm('Remove admin login for '+a.name+' ('+a.email+')? They will no longer be able to log in.'))return;
+  setSaving('Saving...');
+  try{
+    await sbDelete('external_admins',{id:id});
+    externalAdmins=externalAdmins.filter(function(aa){return aa.id!==id;});
+    renderExternalAdminAccess();
+    setSaving('\u2713 Saved');toast('Admin login removed');
+  }catch(e){setSaving('');alert('Error: '+e.message);}
+}
+
+function renderAccountantAccess(){
+  var tb=document.getElementById('acct-tbody');
+  if(!accountants.length){tb.innerHTML='<tr><td colspan="3" class="empty">No accountant logins yet.</td></tr>';return;}
+  tb.innerHTML=accountants.map(function(a){
+    return'<tr><td>'+a.name+'</td><td>'+a.email+'</td><td><button class="btn sm danger" data-acctid="'+a.id+'">Remove</button></td></tr>';
+  }).join('');
+  tb.querySelectorAll('button[data-acctid]').forEach(function(b){
+    b.addEventListener('click',function(){removeAccountant(b.dataset.acctid);});
+  });
+}
+
+async function registerAccountant(){
+  var name=document.getElementById('acct-reg-name').value.trim();
+  var email=document.getElementById('acct-reg-email').value.trim().toLowerCase();
+  var pw=document.getElementById('acct-reg-pw').value.trim();
+  if(!name){alert('Please enter a name.');return;}
+  if(!email){alert('Please enter an email address.');return;}
+  if(!pw||pw.length<4){alert('Password must be at least 4 characters.');return;}
+  if(accountants.some(function(a){return a.email.toLowerCase()===email;})){alert('An accountant with this email already exists.');return;}
+  setSaving('Saving...');
+  try{
+    var r=await sbPost('accountants',[{company_id:currentCompany.id,name:name,email:email,password:pw}]);
+    accountants.push(r[0]);
+    document.getElementById('acct-reg-name').value='';
+    document.getElementById('acct-reg-email').value='';
+    document.getElementById('acct-reg-pw').value='';
+    renderAccountantAccess();
+    setSaving('\u2713 Saved');toast('Accountant login created');
+  }catch(e){setSaving('');alert('Error: '+e.message);}
+}
+
+async function removeAccountant(id){
+  var a=accountants.find(function(aa){return aa.id===id;});
+  if(!a||!confirm('Remove accountant login for '+a.name+' ('+a.email+')? They will no longer be able to log in.'))return;
+  setSaving('Saving...');
+  try{
+    await sbDelete('accountants',{id:id});
+    accountants=accountants.filter(function(aa){return aa.id!==id;});
+    renderAccountantAccess();
+    setSaving('\u2713 Saved');toast('Accountant login removed');
+  }catch(e){setSaving('');alert('Error: '+e.message);}
+}
+
+async function updateCompanyField(field,value){
+  setSaving('Saving...');
+  try{
+    await sbPatch('companies',{id:currentCompany.id},{[field]:value});
+    currentCompany[field]=value;
+    setSaving('✓ Saved');
+  }catch(e){setSaving('');alert('Error: '+e.message);}
+}
+
+// ═══════════════════════════════════════════════════
+// EMPLOYEE VIEW
+// ═══════════════════════════════════════════════════
+function renderEmpView(empId){
+  var emp=employees.find(function(e){return e.id===empId;});
+  if(!emp)return;
+  var ly=curLeaveYear();
+  document.getElementById('ev-name').textContent=emp.name;
+  document.getElementById('ev-sub').textContent='Leave balances · Leave year: 1 Mar '+ly+' – Feb '+(ly+1);
+
+  var grid=document.getElementById('ev-grid');
+  grid.innerHTML=leaveTypes.map(function(lt){
+    var c=getColor(lt.color);
+    var bal=curBal(emp,lt);
+    var taken=totalTakenByType(emp.id,lt.id,ly);
+    var ent=getEntitlement(emp,lt);
+    var manualOb=getOpeningBalance(emp.id,lt.id,ly);
+    var ob=manualOb!==null?manualOb:(lt.accrues?0:ent);
+    var remaining=+(ent+ob-taken).toFixed(2);
+    return'<div class="ev-card" style="border-left-color:'+c.border+'">'
+      +'<div class="ev-type" style="color:'+c.text+'">'+lt.name+'</div>'
+      +'<div class="ev-sub">'+(lt.accrues?'Accrues monthly':'Annual grant')+' · '+ent+' days/year</div>'
+      +'<div class="ev-num" style="color:'+(bal<0?'var(--danger)':c.text)+'">'+bal+'</div>'
+      +'<div class="ev-unit">accrued balance</div>'
+      +(lt.accrues?'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">'
+        +'<div style="text-align:center">'
+          +'<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Entitlement</div>'
+          +'<div style="font-size:18px;font-weight:600;font-family:Consolas,monospace">'+ent+'</div>'
+        +'</div>'
+        +'<div style="text-align:center">'
+          +'<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Opening bal.</div>'
+          +'<div style="font-size:18px;font-weight:600;font-family:Consolas,monospace">'+ob+'</div>'
+        +'</div>'
+        +'<div style="text-align:center">'
+          +'<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Taken</div>'
+          +'<div style="font-size:18px;font-weight:600;font-family:Consolas,monospace">'+taken+'</div>'
+        +'</div>'
+        +'<div style="text-align:center;grid-column:span 3;background:var(--bg);border-radius:6px;padding:8px">'
+          +'<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Ent. + Opening bal. − Taken</div>'
+          +'<div style="font-size:20px;font-weight:600;font-family:Consolas,monospace;color:'+(remaining<0?'var(--danger)':'var(--accent)')+'">'+remaining+'</div>'
+        +'</div>'
+      +'</div>':'')
+      +'</div>';
+  }).join('');
+
+  // Wire Request Leave button
+  var reqBtn=document.getElementById('ev-request-leave-btn');
+  if(reqBtn){
+    reqBtn.onclick=function(){
+      showRequestLeaveModal(empId, emp.name, emp.manager_email||null, emp.manager_email2||null);
+    };
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// OPENING BALANCES
+// ═══════════════════════════════════════════════════
+function showOpeningBalanceModal(empId){
+  var emp=employees.find(function(e){return e.id===empId;});
+  if(!emp)return;
+  var ly=curLeaveYear();
+  var container=document.getElementById('ob-modal-container');
+  var rows=leaveTypes.map(function(lt){
+    var c=getColor(lt.color);
+    var current=getOpeningBalance(empId,lt.id,ly);
+    var defaultVal=lt.accrues?0:(lt.days_per_year);
+    var displayVal=current!==null?current:'';
+    return'<div class="ob-row">'
+      +'<div style="display:flex;align-items:center;gap:8px;flex:1">'
+        +'<div style="width:12px;height:12px;border-radius:3px;background:'+c.bg+';border:1px solid '+c.border+';flex-shrink:0"></div>'
+        +'<span class="ob-lt-name">'+lt.name+'</span>'
+      +'</div>'
+      +'<span class="ob-default">default: '+defaultVal+'</span>'
+      +'<input type="number" step="0.25" class="ob-input" data-ltid="'+lt.id+'" placeholder="'+defaultVal+'" value="'+displayVal+'" style="width:90px;text-align:right;font-family:Consolas,monospace;font-size:13px;padding:5px 8px">'
+      +'</div>';
+  }).join('');
+
+  container.innerHTML='<div class="ob-modal-bg" id="ob-bg">'
+    +'<div class="ob-modal">'
+    +'<h3>Opening balances — '+emp.name+'</h3>'
+    +'<p>Set the opening balance for each leave type at the start of the <strong>'+ly+'/'+( ly+1)+' leave year</strong> (1 March '+ly+'). Leave blank to use the default (0 for accruing types, full entitlement for non-accruing types).</p>'
+    +rows
+    +'<div style="display:flex;gap:10px;margin-top:18px">'
+    +'<button id="ob-save-btn" class="btn primary" style="flex:1">Save opening balances</button>'
+    +'<button id="ob-cancel-btn" class="btn" style="padding:8px 16px">Cancel</button>'
+    +'</div>'
+    +'</div>'
+    +'</div>';
+
+  document.getElementById('ob-cancel-btn').addEventListener('click',function(){container.innerHTML='';});
+  document.getElementById('ob-bg').addEventListener('click',function(e){if(e.target===document.getElementById('ob-bg'))container.innerHTML='';});
+
+  document.getElementById('ob-save-btn').addEventListener('click',async function(){
+    setSaving('Saving...');
+    try{
+      var inputs=container.querySelectorAll('.ob-input');
+      for(var i=0;i<inputs.length;i++){
+        var inp=inputs[i];
+        var ltId=inp.dataset.ltid;
+        var val=inp.value.trim();
+        // Remove existing opening balance for this emp/lt/year
+        openingBalances=openingBalances.filter(function(o){
+          return !(o.employee_id===empId&&o.leave_type_id===ltId&&o.leave_year===ly);
+        });
+        if(val!==''){
+          // Save to Supabase
+          var r=await sbUpsert('opening_balances',
+            {employee_id:empId,leave_type_id:ltId,leave_year:ly,balance:parseFloat(val)},
+            'employee_id,leave_type_id,leave_year');
+          if(r&&r[0])openingBalances.push(r[0]);
+        } else {
+          // Delete from Supabase if blank (use default)
+          try{
+            await fetch(SB_URL+'/rest/v1/opening_balances?employee_id=eq.'+empId+'&leave_type_id=eq.'+ltId+'&leave_year=eq.'+ly,
+              {method:'DELETE',headers:HEADERS});
+          }catch(e2){}
+        }
+      }
+      container.innerHTML='';
+      renderEmployees();
+      if(document.getElementById('panel-balances').classList.contains('active'))renderBalance();
+      setSaving('✓ Saved');
+      toast('Opening balances saved');
+    }catch(e){setSaving('');alert('Error: '+e.message);}
+  });
+}
+
+// ═══════════════════════════════════════════════════
+// EXCEL EXPORT
+// ═══════════════════════════════════════════════════
+function exportExcel(){
+  if(typeof XLSX==='undefined'){alert('Excel library not loaded. Please check your internet connection.');return;}
+  var emp=employees.find(function(e){return e.id===document.getElementById('bal-emp-sel').value;})||employees[0];
+  if(!emp){alert('No employee selected.');return;}
+  var ly=parseInt(document.getElementById('bal-year-sel').value)||curLeaveYear();
+  var n=new Date(),cy=n.getFullYear(),cm=n.getMonth()+1;
+  var wb=XLSX.utils.book_new();
+  // Summary sheet
+  var sumData=[
+    ['Employee Leave Balance Report'],
+    ['Employee:',emp.name],
+    ['Start date:',emp.start_date||'Not set'],
+    ['Leave year:','1 March '+ly+' – '+(isLeapYear(ly+1)?'29':'28')+' February '+(ly+1)],
+    ['Generated:',new Date().toLocaleDateString('en-ZA')],
+    [],
+    ['Leave Type','Entitlement (days)','Accrual method','Days taken','Current balance','Forfeited at year-end'],
+  ];
+  leaveTypes.forEach(function(lt){
+    var rows=computeBalances(emp,lt,ly);
+    var taken=rows.reduce(function(s,r){return s+r.taken;},0);
+    var fb=+rows[rows.length-1].closing.toFixed(2);
+    var forfeited=lt.forfeits&&fb>0?fb:0;
+    var ent=getEntitlement(emp,lt);
+    var u=lt.accrues?(ent/12):1;
+    sumData.push([lt.name,ent,lt.accrues?'Monthly accrual':'Full grant at year start',taken,+curBal(emp,lt),lt.forfeits?forfeited:'N/A']);
+  });
+  var ws=XLSX.utils.aoa_to_sheet(sumData);
+  ws['!cols']=[{wch:28},{wch:18},{wch:26},{wch:14},{wch:18},{wch:22}];
+  XLSX.utils.book_append_sheet(wb,ws,'Summary');
+  // One sheet per leave type
+  leaveTypes.forEach(function(lt){
+    var ent=getEntitlement(emp,lt);
+    var u=lt.accrues?(ent/12):1;
+    var rows=computeBalances(emp,lt,ly);
+    var sd=[
+      [lt.name+' — '+emp.name],
+      ['Leave year:','1 March '+ly+' – Feb '+(ly+1)],
+      ['Entitlement:',ent+' days'],
+      ['Accrual:',lt.accrues?'Monthly ('+fmtBal(ent/12,u)+'/mo)':'Full grant at year start'],
+      ['Forfeiture:',lt.forfeits?'Unused days forfeited':'Unused days carry over'],
+      [],
+      ['Month','Opening balance','Accrued','Taken','Closing balance','Status'],
+    ];
+    rows.forEach(function(r){
+      var isCur=r.y===cy&&r.m===cm;
+      sd.push([
+        MS[r.m-1]+' '+r.y,
+        r.started?fmtBal(r.opening,r.unit):'',
+        r.started?(lt.accrues?fmtBal(r.accrued,r.unit):''):'',
+        r.started&&r.taken>0?r.taken:'',
+        r.started?fmtBal(r.closing,r.unit):'',
+        !r.started?'Before start date':isCur?'Current month':''
+      ]);
+    });
+    var taken=rows.reduce(function(s,r){return s+r.taken;},0);
+    var fb=fmtBal(rows[rows.length-1].closing,u);
+    sd.push([]);
+    sd.push(['Year-end total','','',taken,fb,lt.forfeits&&fb>0?fb+' days forfeited':'']);
+    var ws2=XLSX.utils.aoa_to_sheet(sd);
+    ws2['!cols']=[{wch:14},{wch:18},{wch:12},{wch:10},{wch:18},{wch:20}];
+    XLSX.utils.book_append_sheet(wb,ws2,lt.name.replace(/[:\\/\?\*\[\]]/g,'').substring(0,28));
+  });
+  var filename='leave-'+emp.name.replace(/\s+/g,'-').toLowerCase()+'-'+ly+'.xlsx';
+  XLSX.writeFile(wb,filename);
+  toast('Excel downloaded');
+}
+
+// ═══════════════════════════════════════════════════
+// ACCOUNTANT VIEW
+// ═══════════════════════════════════════════════════
+function populateAvYears(){
+  var sel=document.getElementById('av-year-sel');
+  var prev=parseInt(sel.value);
+  var ly=curLeaveYear();
+  var yrs=[];for(var y=ly-2;y<=ly+2;y++)yrs.push(y);
+  sel.innerHTML=yrs.map(function(y){return'<option value="'+y+'"'+(y===ly?' selected':'')+'>Mar '+y+' – Feb '+(y+1)+'</option>';}).join('');
+  if(prev&&yrs.indexOf(prev)>=0)sel.value=prev;
+}
+
+function avMonthlyTable(emp, lt, ly){
+  var rows=computeBalances(emp,lt,ly);
+  var n=new Date(),cy=n.getFullYear(),cm=n.getMonth()+1;
+  var c=getColor(lt.color);
+  var html='<div style="margin-bottom:6px"><span class="lt-pill" style="background:'+c.bg+';color:'+c.text+';border:1px solid '+c.border+'">'+lt.name+'</span></div>';
+  html+='<table class="av-monthly-table"><thead><tr><th>Month</th><th>Due at Start</th><th>Leave Taken</th><th>Leave Accrued</th><th>Due at End</th></tr></thead><tbody>';
+  rows.forEach(function(r){
+    var isCur=r.y===cy&&r.m===cm;
+    var ns=!r.started;
+    var due=fmtBal(r.opening,r.unit), taken=r.taken, accr=fmtBal(r.accrued,r.unit), end=fmtBal(r.closing,r.unit);
+    html+='<tr'+(isCur?' style="font-weight:600;background:var(--accent-light)"':'')+(ns?' style="opacity:.4"':'')+'>'
+      +'<td>'+MS[r.m-1]+' '+r.y+(isCur?' <span class="badge current">current</span>':'')+'</td>'
+      +'<td>'+(ns?'—':due)+'</td>'
+      +'<td>'+(ns||taken===0?'—':taken)+'</td>'
+      +'<td>'+(ns?'—':(lt.accrues?accr:(r.opening>0&&r.y===ly&&r.m===3?due:'—')))+'</td>'
+      +'<td style="color:'+(end<0?'var(--danger)':'inherit')+'">'+(ns?'—':end)+'</td>'
+      +'</tr>';
+  });
+  html+='</tbody></table>';
+  return html;
+}
+
+function avMiniCalendar(emp, ly){
+  // Build all 12 months of the leave year
+  var months = lyMonths(ly);
+  var html = '<div class="av-months">';
+  months.forEach(function(mo){
+    var y=mo.y, m=mo.m;
+    var d=dim(y,m), fd=new Date(y,m-1,1).getDay();
+    html += '<div class="av-month"><div class="av-month-title">'+MN[m-1]+' '+y+'</div>';
+    html += '<div class="av-mini-grid">';
+    // Day headers
+    ['S','M','T','W','T','F','S'].forEach(function(d){html+='<div class="av-mini-dh">'+d+'</div>';});
+    // Empty cells before first day
+    for(var i=0;i<fd;i++) html+='<div class="av-mini-day other"></div>';
+    // Days
+    for(var dd=1;dd<=d;dd++){
+      var k=dk(y,m,dd);
+      var wk=isWeekend(y,m,dd);
+      var hol=isHoliday(y,m,dd);
+      var bs=emp.start_date&&(new Date(y,m-1,dd)<new Date(emp.start_date));
+      var rec=leaveRecords.find(function(r){return r.employee_id===emp.id&&r.date===k;});
+      var lt=rec?leaveTypes.find(function(l){return l.id===rec.leave_type_id;}):null;
+      var cls='av-mini-day';
+      var sty='';
+      if(wk) cls+=' weekend';
+      else if(hol) cls+=' holiday';
+      else if(bs) cls+=' before-start';
+      else if(lt){
+        cls+=' leave';
+        var c=getColor(lt.color);
+        sty='background:'+c.bg+';color:'+c.text+';border:1px solid '+c.border+';';
+      }
+      var label=dd+(rec&&rec.half_day?'½':'');
+      html+='<div class="'+cls+'" style="'+sty+'" title="'+( hol?holName(y,m,dd):lt?(rec.half_day?'½ ':'')+lt.name:'' )+'">'+label+'</div>';
+    }
+    html+='</div></div>';
+  });
+  html+='</div>';
+  return html;
+}
+
+function renderAccountantView(){
+  var ly=parseInt(document.getElementById('av-year-sel').value)||curLeaveYear();
+  var grid=document.getElementById('av-grid');
+  if(!employees.length){grid.innerHTML='<div class="empty">No employees found.</div>';return;}
+  grid.innerHTML=employees.map(function(emp){
+    var started=emp.start_date?new Date(emp.start_date).toLocaleDateString('en-ZA'):'—';
+    var balCells=leaveTypes.map(function(lt){
+      var c=getColor(lt.color);
+      var bal=curBal(emp,lt);
+      var taken=totalTakenByType(emp.id,lt.id,ly);
+      var ent=getEntitlement(emp,lt);
+      return'<div class="av-bal-cell">'
+        +'<div class="av-bal-type" style="color:'+c.text+'">'+lt.name+'</div>'
+        +'<div class="av-bal-num" style="color:'+(bal<0?'var(--danger)':bal>0?'var(--accent)':'inherit')+'">'+bal+'</div>'
+        +'<div class="av-bal-taken">Taken: '+taken+' · Entitlement: '+ent+'</div>'
+        +'</div>';
+    }).join('');
+    var legend=leaveTypes.map(function(lt){
+      var c=getColor(lt.color);
+      return'<div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)">'
+        +'<div style="width:12px;height:12px;border-radius:2px;background:'+c.bg+';border:1px solid '+c.border+'"></div>'+lt.name+'</div>';
+    }).join('');
+    var monthlyTables=leaveTypes.map(function(lt){return avMonthlyTable(emp,lt,ly);}).join('');
+    return'<div class="av-emp-card">'
+      +'<div class="av-emp-hdr">'
+      +'<div><div class="av-emp-name">'+emp.name+'</div><div class="av-emp-sub">Start date: '+started+' &nbsp;\u00b7&nbsp; Leave year: Mar '+ly+' \u2013 Feb '+(ly+1)+'</div></div>'
+      +'</div>'
+      +'<div class="av-balances">'+balCells+'</div>'
+      +'<div class="av-cal-section">'
+      +'<h4 class="av-toggle-monthly" data-empid="'+emp.id+'" id="av-marrow-'+emp.id+'">\u25bc Show monthly breakdown</h4>'
+      +'<div id="av-monthly-'+emp.id+'" style="display:none">'+monthlyTables+'</div>'
+      +'</div>'
+      +'<div class="av-cal-section">'
+      +'<h4 class="av-toggle-cal" data-empid="'+emp.id+'" id="av-arrow-'+emp.id+'">\u25bc Show calendar</h4>'
+      +'<div id="av-cal-'+emp.id+'" style="display:none">'
+      +'<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px">'+legend
+      +'<div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)"><div style="width:12px;height:12px;border-radius:2px;background:#FAECE7;border:1px solid #F0997B"></div>Public holiday</div>'
+      +'<div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)"><div style="width:12px;height:12px;border-radius:2px;background:#F0EFE9;border:1px solid #E2E0D8"></div>Weekend</div>'
+      +'</div>'
+      +avMiniCalendar(emp,ly)
+      +'</div>'
+      +'</div>'
+      +'</div>';
+  }).join('');
+  // Wire toggle buttons via event delegation
+  grid.querySelectorAll('.av-toggle-cal').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var empId=btn.dataset.empid;
+      var cal=document.getElementById('av-cal-'+empId);
+      if(cal.style.display==='none'){
+        cal.style.display='';
+        btn.textContent='▲ Hide calendar';
+      } else {
+        cal.style.display='none';
+        btn.textContent='▼ Show calendar';
+      }
+    });
+  });
+  grid.querySelectorAll('.av-toggle-monthly').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var empId=btn.dataset.empid;
+      var el=document.getElementById('av-monthly-'+empId);
+      if(el.style.display==='none'){
+        el.style.display='';
+        btn.textContent='▲ Hide monthly breakdown';
+      } else {
+        el.style.display='none';
+        btn.textContent='▼ Show monthly breakdown';
+      }
+    });
+  });
+}
+
+function populateMgrYears(){
+  var sel=document.getElementById('mgr-year-sel');
+  var prev=parseInt(sel.value);
+  var ly=curLeaveYear();
+  var yrs=[];for(var y=ly-2;y<=ly+2;y++)yrs.push(y);
+  sel.innerHTML=yrs.map(function(y){return'<option value="'+y+'"'+(y===ly?' selected':'')+'>Mar '+y+' \u2013 Feb '+(y+1)+'</option>';}).join('');
+  if(prev&&yrs.indexOf(prev)>=0)sel.value=prev;
+}
+
+function renderManagerView(){
+  var ly=parseInt(document.getElementById('mgr-year-sel').value)||curLeaveYear();
+  var grid=document.getElementById('mgr-grid');
+  if(!managerEmployees.length){grid.innerHTML='<div class="empty">No employees are linked to you as a manager yet. Ask admin to add your email under an employee\'s Manager 1 or Manager 2 field.</div>';return;}
+  grid.innerHTML=managerEmployees.map(function(emp){
+    var started=emp.start_date?new Date(emp.start_date).toLocaleDateString('en-ZA'):'\u2014';
+    var balCells=leaveTypes.map(function(lt){
+      var c=getColor(lt.color);
+      var bal=curBal(emp,lt);
+      var taken=totalTakenByType(emp.id,lt.id,ly);
+      var ent=getEntitlement(emp,lt);
+      return'<div class="av-bal-cell">'
+        +'<div class="av-bal-type" style="color:'+c.text+'">'+lt.name+'</div>'
+        +'<div class="av-bal-num" style="color:'+(bal<0?'var(--danger)':bal>0?'var(--accent)':'inherit')+'">'+bal+'</div>'
+        +'<div class="av-bal-taken">Taken: '+taken+' \u00b7 Entitlement: '+ent+'</div>'
+        +'</div>';
+    }).join('');
+    var legend=leaveTypes.map(function(lt){
+      var c=getColor(lt.color);
+      return'<div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)">'
+        +'<div style="width:12px;height:12px;border-radius:2px;background:'+c.bg+';border:1px solid '+c.border+'"></div>'+lt.name+'</div>';
+    }).join('');
+    var monthlyTables=leaveTypes.map(function(lt){return avMonthlyTable(emp,lt,ly);}).join('');
+    return'<div class="av-emp-card">'
+      +'<div class="av-emp-hdr">'
+      +'<div><div class="av-emp-name">'+emp.name+'</div><div class="av-emp-sub">Start date: '+started+' &nbsp;\u00b7&nbsp; Leave year: Mar '+ly+' \u2013 Feb '+(ly+1)+'</div></div>'
+      +'</div>'
+      +'<div class="av-balances">'+balCells+'</div>'
+      +'<div class="av-cal-section">'
+      +'<h4 class="mgr-toggle-monthly" data-empid="'+emp.id+'" id="mgr-marrow-'+emp.id+'">\u25bc Show monthly breakdown</h4>'
+      +'<div id="mgr-monthly-'+emp.id+'" style="display:none">'+monthlyTables+'</div>'
+      +'</div>'
+      +'<div class="av-cal-section">'
+      +'<h4 class="mgr-toggle-cal" data-empid="'+emp.id+'" id="mgr-arrow-'+emp.id+'">\u25bc Show calendar</h4>'
+      +'<div id="mgr-cal-'+emp.id+'" style="display:none">'
+      +'<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px">'+legend
+      +'<div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)"><div style="width:12px;height:12px;border-radius:2px;background:#FAECE7;border:1px solid #F0997B"></div>Public holiday</div>'
+      +'<div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)"><div style="width:12px;height:12px;border-radius:2px;background:#F0EFE9;border:1px solid #E2E0D8"></div>Weekend</div>'
+      +'</div>'
+      +avMiniCalendar(emp,ly)
+      +'</div>'
+      +'</div>'
+      +'</div>';
+  }).join('');
+
+  grid.querySelectorAll('.mgr-toggle-cal').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var empId=btn.dataset.empid;
+      var cal=document.getElementById('mgr-cal-'+empId);
+      if(cal.style.display==='none'){cal.style.display='';btn.textContent='\u25b2 Hide calendar';}
+      else{cal.style.display='none';btn.textContent='\u25bc Show calendar';}
+    });
+  });
+  grid.querySelectorAll('.mgr-toggle-monthly').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var empId=btn.dataset.empid;
+      var el=document.getElementById('mgr-monthly-'+empId);
+      if(el.style.display==='none'){el.style.display='';btn.textContent='\u25b2 Hide monthly breakdown';}
+      else{el.style.display='none';btn.textContent='\u25bc Show monthly breakdown';}
+    });
+  });
+}
+
+function exportAccountantExcel(){
+  if(typeof XLSX==='undefined'){alert('Excel library not loaded.');return;}
+  var ly=parseInt(document.getElementById('av-year-sel').value)||curLeaveYear();
+  var wb=XLSX.utils.book_new();
+  // Summary sheet - all employees
+  var sumData=[
+    [currentCompany.name+' — Leave Balance Report'],
+    ['Leave year:','1 March '+ly+' – '+(isLeapYear(ly+1)?'29':'28')+' February '+(ly+1)],
+    ['Generated:',new Date().toLocaleDateString('en-ZA')],
+    [],
+    ['Employee','Start date'].concat(leaveTypes.map(function(lt){return lt.name+' (balance)';})).concat(leaveTypes.map(function(lt){return lt.name+' (taken)';}))
+  ];
+  employees.forEach(function(emp){
+    var bals=leaveTypes.map(function(lt){return curBal(emp,lt);});
+    var takens=leaveTypes.map(function(lt){return totalTakenByType(emp.id,lt.id,ly);});
+    sumData.push([emp.name,emp.start_date||''].concat(bals).concat(takens));
+  });
+  var ws=XLSX.utils.aoa_to_sheet(sumData);
+  ws['!cols']=[{wch:24},{wch:14}].concat(leaveTypes.map(function(){return{wch:20};})).concat(leaveTypes.map(function(){return{wch:16};}));
+  XLSX.utils.book_append_sheet(wb,ws,'All Employees');
+  // One sheet per employee
+  employees.forEach(function(emp){
+    var sd=[['Leave year:','1 March '+ly+' – Feb '+(ly+1)],['Employee:',emp.name],[]];
+    leaveTypes.forEach(function(lt){
+      var rows=computeBalances(emp,lt,ly);
+      var ent=getEntitlement(emp,lt);
+      var u=lt.accrues?(ent/12):1;
+      sd.push([lt.name,'Entitlement: '+ent+' days']);
+      sd.push(['Month','Opening','Accrued','Taken','Closing']);
+      rows.forEach(function(r){
+        if(r.started) sd.push([MS[r.m-1]+' '+r.y,fmtBal(r.opening,r.unit),lt.accrues?fmtBal(r.accrued,r.unit):'',r.taken||'',fmtBal(r.closing,r.unit)]);
+      });
+      var taken=rows.reduce(function(s,r){return s+r.taken;},0);
+      sd.push(['Year-end','','',taken,fmtBal(rows[rows.length-1].closing,u)]);
+      sd.push([]);
+    });
+    var ws2=XLSX.utils.aoa_to_sheet(sd);
+    ws2['!cols']=[{wch:14},{wch:14},{wch:12},{wch:10},{wch:14}];
+    XLSX.utils.book_append_sheet(wb,ws2,emp.name.substring(0,28));
+  });
+  XLSX.writeFile(wb,currentCompany.name.replace(/\s+/g,'-').toLowerCase()+'-leave-report-'+ly+'.xlsx');
+  toast('Excel downloaded');
+}
+
+// ═══════════════════════════════════════════════════
+// REQUEST LEAVE (employee self-service, auto-captured)
+// ═══════════════════════════════════════════════════
+function countWorkingDaysList(startStr, endStr){
+  var list=[];
+  if(!startStr||!endStr)return list;
+  var s=new Date(startStr), e=new Date(endStr);
+  if(e<s)return list;
+  var d=new Date(s);
+  while(d<=e){
+    var y=d.getFullYear(),m=d.getMonth()+1,dd=d.getDate();
+    if(!isWeekend(y,m,dd)&&!isHoliday(y,m,dd))list.push(dk(y,m,dd));
+    d.setDate(d.getDate()+1);
+  }
+  return list;
+}
+
+function formatDateNice(str){
+  if(!str)return '';
+  var p=str.split('-');
+  return parseInt(p[2])+' '+MN[parseInt(p[1])-1]+' '+p[0];
+}
+
+function showRequestLeaveModal(empId, empName, mgr1, mgr2){
+  var container=document.getElementById('req-modal-container');
+  var ltOptions=leaveTypes.map(function(lt){return'<option value="'+lt.id+'">'+lt.name+'</option>';}).join('');
+  container.innerHTML='<div class="rl-modal-bg" id="rl-bg">'
+    +'<div class="rl-modal">'
+    +'<h3>Request Leave</h3>'
+    +'<div class="lfield"><label>Leave type</label><select id="rl-lt-sel">'+ltOptions+'</select></div>'
+    +'<div class="lfield"><label>Start date</label><input type="date" id="rl-start"></div>'
+    +'<div class="lfield"><label>End date</label><input type="date" id="rl-end"></div>'
+    +'<div class="rl-days-preview" id="rl-days-preview"></div>'
+    +'<button class="lbtn" id="rl-submit-btn">Submit</button>'
+    +'<button class="lbtn sec" id="rl-cancel-btn">Cancel</button>'
+    +'</div></div>';
+
+  function updatePreview(){
+    var s=document.getElementById('rl-start').value;
+    var e=document.getElementById('rl-end').value;
+    var el=document.getElementById('rl-days-preview');
+    if(s&&e){
+      var days=countWorkingDaysList(s,e).length;
+      el.textContent=days+' working day'+(days!==1?'s':'')+' (weekends and public holidays excluded)';
+    } else { el.textContent=''; }
+  }
+  document.getElementById('rl-start').addEventListener('change',updatePreview);
+  document.getElementById('rl-end').addEventListener('change',updatePreview);
+  document.getElementById('rl-cancel-btn').addEventListener('click',function(){container.innerHTML='';});
+  document.getElementById('rl-bg').addEventListener('click',function(ev){if(ev.target.id==='rl-bg')container.innerHTML='';});
+
+  document.getElementById('rl-submit-btn').addEventListener('click',async function(){
+    var ltId=document.getElementById('rl-lt-sel').value;
+    var start=document.getElementById('rl-start').value;
+    var end=document.getElementById('rl-end').value;
+    if(!start||!end){alert('Please select both a start and end date.');return;}
+    if(end<start){alert('End date cannot be before start date.');return;}
+    var dayKeys=countWorkingDaysList(start,end);
+    if(!dayKeys.length){alert('No working days in this range (weekends/holidays only).');return;}
+    if(!mgr1&&!mgr2){alert('No manager email is set for your profile. Please ask admin to add one.');return;}
+
+    setSaving('Submitting...');
+    try{
+      // Auto-capture each working day on the calendar
+      var records=[];
+      dayKeys.forEach(function(k){
+        var exists=leaveRecords.find(function(r){return r.employee_id===empId&&r.date===k;});
+        if(!exists)records.push({employee_id:empId,leave_type_id:ltId,date:k,half_day:false});
+      });
+      if(records.length){
+        var added=await sbPost('leave_records',records);
+        leaveRecords=leaveRecords.concat(added);
+      }
+
+      var lt=leaveTypes.find(function(l){return l.id===ltId;})||{name:'Leave'};
+
+      // Build mailto to both managers
+      var recipients=[mgr1,mgr2].filter(Boolean).join(';');
+      var subject='Leave Request \u2014 '+empName;
+      var body='Good day,\n\n'
+        +'I would like apply for the following leave:\n\n'
+        +'Leave Type: '+lt.name+'\n'
+        +'From Date: '+formatDateNice(start)+'\n'
+        +'To Date: '+formatDateNice(end)+'\n'
+        +'Working Days: '+dayKeys.length+'\n\n'
+        +'Thank you very much.\n\n'
+        +'Regards,\n'+empName;
+      var mailto='mailto:'+encodeURIComponent(recipients)
+        +'?subject='+encodeURIComponent(subject)
+        +'&body='+encodeURIComponent(body);
+
+      container.innerHTML='';
+      renderEmpView(empId);
+      setSaving('\u2713 Captured');
+      toast('Leave captured! Opening your email to notify your managers\u2026');
+      window.location.href=mailto;
+
+    }catch(e){setSaving('');alert('Error: '+e.message);}
+  });
+}
+
+// ═══════════════════════════════════════════════════
+// UNIFIED LOGIN COMPLETION — one login, roles determine visible tabs
+// ═══════════════════════════════════════════════════
+async function completeLogin(user){
+  currentUser=user;
+  currentAccountant=null;
+  managerEmployees=employees.filter(function(e){
+    return (e.manager_email&&user.email&&e.manager_email.toLowerCase()===user.email.toLowerCase())
+      || (e.manager_email2&&user.email&&e.manager_email2.toLowerCase()===user.email.toLowerCase());
+  });
+
+  document.getElementById('hdr-co-name').textContent=currentCompany.name;
+  document.getElementById('hdr-user-name').textContent=user.name;
+
+  var isAdmin=!!user.is_admin;
+  var isManager=managerEmployees.length>0;
+
+  toggleTab('tab-btn-myleave', true);
+  toggleTab('tab-btn-myteam', isManager);
+  toggleTab('tab-btn-overview', false);
+  ['employees','leavetypes','calendar','balances','holidays','settings'].forEach(function(t){
+    toggleTab('tab-btn-'+t, isAdmin);
+  });
+
+  renderAll();
+  showScreen('app');
+  showTab('myleave');
+}
+
+async function completeAccountantLogin(acct){
+  currentUser=null;
+  currentAccountant=acct;
+  managerEmployees=[];
+
+  document.getElementById('hdr-co-name').textContent=currentCompany.name;
+  document.getElementById('hdr-user-name').textContent=acct.name+' (Accountant)';
+
+  toggleTab('tab-btn-myleave', false);
+  toggleTab('tab-btn-myteam', false);
+  toggleTab('tab-btn-overview', true);
+  ['employees','leavetypes','calendar','balances','holidays','settings'].forEach(function(t){
+    toggleTab('tab-btn-'+t, false);
+  });
+
+  showScreen('app');
+  showTab('overview');
+}
+
+async function completeExternalAdminLogin(eadmin){
+  currentUser=null;
+  currentAccountant=null;
+  currentExternalAdmin=eadmin;
+  managerEmployees=[];
+
+  document.getElementById('hdr-co-name').textContent=currentCompany.name;
+  document.getElementById('hdr-user-name').textContent=eadmin.name+' (Admin)';
+
+  toggleTab('tab-btn-myleave', false);
+  toggleTab('tab-btn-myteam', false);
+  toggleTab('tab-btn-overview', false);
+  ['employees','leavetypes','calendar','balances','holidays','settings'].forEach(function(t){
+    toggleTab('tab-btn-'+t, true);
+  });
+
+  renderAll();
+  showScreen('app');
+  showTab('employees');
+}
+
+function toggleTab(btnId, visible){
+  var btn=document.getElementById(btnId);
+  if(btn)btn.style.display=visible?'':'none';
+}
+
+// ═══════════════════════════════════════════════════
+// RENDER ALL
+// ═══════════════════════════════════════════════════
+function renderAll(){
+  buildCpick();
+  refreshEmpSelects();
+  refreshLTSelects();
+  renderEmployees();
+}
+
+// ═══════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', async function(){
+  var n=new Date(); calYear=n.getFullYear(); calMonth=n.getMonth()+1;
+  activeHolYear=2025;
+
+  // Load companies from Supabase
+  var companies=[];
+  try{
+    companies=await sbGet('companies','order=name.asc');
+  }catch(e){
+    document.getElementById('loading-screen').classList.add('gone');
+    alert('Could not connect to the database. Please check your internet connection.\n\n'+e.message);
+    return;
+  }
+
+  document.getElementById('loading-screen').classList.add('gone');
+  showScreen('login');
+
+  if(companies.length){
+    var sel=document.getElementById('co-select');
+    sel.innerHTML=companies.map(function(c){return'<option value="'+c.id+'">'+c.name+'</option>';}).join('');
+    showLoginStep('select');
+  }else{
+    showLoginStep('new');
+  }
+
+  // ── Company selector ──
+  document.getElementById('co-select-btn').addEventListener('click',async function(){
+    var coId=document.getElementById('co-select').value;
+    var co=companies.find(function(c){return c.id===coId;});
+    if(!co)return;
+    try{
+      await loadCompanyData(co);
+      document.getElementById('login-sub').textContent=co.name;
+      showLoginStep('login');setLoginErr('');
+      document.getElementById('login-email-inp').value='';
+      document.getElementById('login-pw-inp').value='';
+    }catch(e){alert('Error loading company: '+e.message);}
+  });
+
+  document.getElementById('new-co-show-btn').addEventListener('click',function(){
+    showLoginStep('new');
+    document.getElementById('new-co-gate').style.display='';
+    document.getElementById('new-co-form').style.display='none';
+    document.getElementById('master-code-inp').value='';
+    setLoginErr('');
+  });
+
+  document.getElementById('verify-master-btn').addEventListener('click',function(){
+    var code=document.getElementById('master-code-inp').value.trim();
+    if(code!==MASTER_CODE){setLoginErr('Incorrect access code.');document.getElementById('master-code-inp').value='';return;}
+    setLoginErr('');
+    document.getElementById('new-co-gate').style.display='none';
+    document.getElementById('new-co-form').style.display='';
+  });
+  document.getElementById('master-code-inp').addEventListener('keydown',function(e){
+    if(e.key==='Enter')document.getElementById('verify-master-btn').click();
+  });
+
+  document.getElementById('back-to-gate-btn').addEventListener('click',function(){
+    document.getElementById('new-co-form').style.display='none';
+    document.getElementById('new-co-gate').style.display='';
+    setLoginErr('');
+  });
+  document.getElementById('back-to-select-btn').addEventListener('click',function(){
+    showLoginStep(companies.length?'select':'new');
+    if(!companies.length){
+      document.getElementById('new-co-gate').style.display='';
+      document.getElementById('new-co-form').style.display='none';
+    }
+    setLoginErr('');
+  });
+  document.getElementById('back-to-cos-btn').addEventListener('click',function(){showLoginStep(companies.length?'select':'new');setLoginErr('');});
+
+  // ── Create company (creates the company + you, as the first admin employee) ──
+  document.getElementById('create-co-btn').addEventListener('click',async function(){
+    var name=document.getElementById('new-co-name').value.trim();
+    var yourName=document.getElementById('new-co-your-name').value.trim();
+    var yourEmail=document.getElementById('new-co-your-email').value.trim().toLowerCase();
+    var pw=document.getElementById('new-co-pw').value.trim();
+    var rk=document.getElementById('new-co-rk').value.trim();
+    if(!name){setLoginErr('Please enter a company name.');return;}
+    if(!yourName){setLoginErr('Please enter your name.');return;}
+    if(!yourEmail){setLoginErr('Please enter your email.');return;}
+    if(!pw||pw.length<4){setLoginErr('Password must be at least 4 characters.');return;}
+    if(!rk){setLoginErr('Please enter a recovery key.');return;}
+    try{
+      var r=await sbPost('companies',[{name:name,admin_password:pw,recovery_key:rk}]);
+      var co=r[0];
+      companies.push(co);
+      // Add default leave types
+      var lts=DEFAULT_LT.map(function(lt){return Object.assign({},lt,{company_id:co.id});});
+      await sbPost('leave_types',lts);
+      // Add default holidays
+      var hols=DEFAULT_HOL.map(function(h){return{company_id:co.id,date:h.date,name:h.name};});
+      await sbPost('public_holidays',hols);
+      // Create the first employee — you — as admin + accountant
+      await sbPost('employees',[{company_id:co.id,name:yourName,email:yourEmail,password:pw,is_admin:true}]);
+      await loadCompanyData(co);
+      await completeLogin(employees.find(function(e){return e.email&&e.email.toLowerCase()===yourEmail;}));
+      toast('Company created! Add your employees to get started.');
+    }catch(e){setLoginErr('Error: '+e.message);}
+  });
+
+  // ── Unified login (works for anyone: employee, admin, manager, accountant — same email/password) ──
+  document.getElementById('do-login-btn').addEventListener('click',async function(){
+    var email=document.getElementById('login-email-inp').value.trim().toLowerCase();
+    var pw=document.getElementById('login-pw-inp').value;
+    if(!email||!pw){setLoginErr('Please enter your email and password.');return;}
+    var user=employees.find(function(e){return e.email&&e.email.toLowerCase()===email;});
+    if(user&&user.password===pw){setLoginErr('');await completeLogin(user);return;}
+    var acct=accountants.find(function(a){return a.email.toLowerCase()===email;});
+    if(acct&&acct.password===pw){setLoginErr('');await completeAccountantLogin(acct);return;}
+    var eadmin=externalAdmins.find(function(a){return a.email.toLowerCase()===email;});
+    if(eadmin&&eadmin.password===pw){setLoginErr('');await completeExternalAdminLogin(eadmin);return;}
+    setLoginErr('Incorrect email or password.');document.getElementById('login-pw-inp').value='';
+  });
+  document.getElementById('login-pw-inp').addEventListener('keydown',function(e){if(e.key==='Enter')document.getElementById('do-login-btn').click();});
+
+  // ── Forgot password ──
+  document.getElementById('forgot-pw-btn').addEventListener('click',function(){
+    document.getElementById('unified-login-form').style.display='none';
+    document.getElementById('forgot-pw-panel').style.display='';
+    setLoginErr('');
+  });
+  document.getElementById('back-to-login-btn').addEventListener('click',function(){
+    document.getElementById('forgot-pw-panel').style.display='none';
+    document.getElementById('unified-login-form').style.display='';
+    setLoginErr('');
+  });
+  document.getElementById('do-reset-btn').addEventListener('click',async function(){
+    var email=document.getElementById('reset-email-inp').value.trim().toLowerCase();
+    var rk=document.getElementById('recovery-key-inp').value.trim();
+    var newpw=document.getElementById('new-pw-inp').value.trim();
+    if(!email){setLoginErr('Please enter your email.');return;}
+    if(!rk){setLoginErr('Please enter the company recovery key.');return;}
+    if(rk!==currentCompany.recovery_key){setLoginErr('Incorrect recovery key.');return;}
+    if(!newpw||newpw.length<4){setLoginErr('Password must be at least 4 characters.');return;}
+    var user=employees.find(function(e){return e.email&&e.email.toLowerCase()===email;});
+    var acct=!user&&accountants.find(function(a){return a.email.toLowerCase()===email;});
+    var eadmin=!user&&!acct&&externalAdmins.find(function(a){return a.email.toLowerCase()===email;});
+    if(!user&&!acct&&!eadmin){setLoginErr('No account found with that email.');return;}
+    try{
+      if(user){await sbPatch('employees',{id:user.id},{password:newpw});user.password=newpw;}
+      else if(acct){await sbPatch('accountants',{id:acct.id},{password:newpw});acct.password=newpw;}
+      else if(eadmin){await sbPatch('external_admins',{id:eadmin.id},{password:newpw});eadmin.password=newpw;}
+      document.getElementById('reset-email-inp').value='';
+      document.getElementById('recovery-key-inp').value='';
+      document.getElementById('new-pw-inp').value='';
+      document.getElementById('forgot-pw-panel').style.display='none';
+      document.getElementById('unified-login-form').style.display='';
+      setLoginErr('');toast('Password reset! Please log in with your new password.');
+    }catch(e){setLoginErr('Error: '+e.message);}
+  });
+
+  // ── Logout ──
+  document.getElementById('logout-btn').addEventListener('click',function(){
+    currentCompany=null;employees=[];leaveTypes=[];holidays=[];leaveRecords=[];currentUser=null;currentAccountant=null;currentExternalAdmin=null;managerEmployees=[];
+    document.getElementById('login-email-inp').value='';
+    document.getElementById('login-pw-inp').value='';
+    var sel=document.getElementById('co-select');
+    sel.innerHTML=companies.map(function(c){return'<option value="'+c.id+'">'+c.name+'</option>';}).join('');
+    showScreen('login');showLoginStep(companies.length?'select':'new');setLoginErr('');
+  });
+  document.getElementById('av-year-sel').addEventListener('change',renderAccountantView);
+  document.getElementById('av-export-btn').addEventListener('click',exportAccountantExcel);
+  document.getElementById('mgr-year-sel').addEventListener('change',renderManagerView);
+
+  // ── Tabs ──
+  document.querySelectorAll('.tab').forEach(function(t){t.addEventListener('click',function(){showTab(t.dataset.tab);});});
+
+  // ── Employee tab ──
+  document.getElementById('add-emp-btn').addEventListener('click',addEmployee);
+
+  // ── Leave types tab ──
+  document.getElementById('add-lt-btn').addEventListener('click',addLT);
+
+  // ── Calendar ──
+  document.getElementById('cal-prev').addEventListener('click',function(){calMonth--;if(calMonth<1){calMonth=12;calYear--;}renderCalendar();});
+  document.getElementById('cal-next').addEventListener('click',function(){calMonth++;if(calMonth>12){calMonth=1;calYear++;}renderCalendar();});
+  document.getElementById('cal-emp-sel').addEventListener('change',renderCalendar);
+
+  // ── Balances ──
+  document.getElementById('bal-emp-sel').addEventListener('change',renderBalance);
+  document.getElementById('bal-year-sel').addEventListener('change',renderBalance);
+  document.getElementById('export-excel-btn').addEventListener('click',exportExcel);
+
+  document.getElementById('export-excel-btn').addEventListener('click',exportExcel);
+
+  // ── Holidays ──
+  document.getElementById('add-hol-btn').addEventListener('click',addHoliday);
+  document.getElementById('add-hol-yr-btn').addEventListener('click',addHolidayYear);
+
+  // ── Settings ──
+  document.getElementById('acct-reg-btn').addEventListener('click',registerAccountant);
+  document.getElementById('eadmin-reg-btn').addEventListener('click',registerExternalAdmin);
+  document.getElementById('change-my-pw-btn').addEventListener('click',async function(){
+    var pw=document.getElementById('my-pw-inp').value.trim();
+    if(!pw||pw.length<4){alert('Password must be at least 4 characters.');return;}
+    setSaving('Saving...');
+    try{
+      if(currentExternalAdmin){
+        await sbPatch('external_admins',{id:currentExternalAdmin.id},{password:pw});
+        currentExternalAdmin.password=pw;
+      } else {
+        await updateEmpField(currentUser.id,'password',pw);
+      }
+      document.getElementById('my-pw-inp').value='';
+      setSaving('\u2713 Saved');
+      toast('Your password has been updated');
+    }catch(e){setSaving('');alert('Error: '+e.message);}
+  });
+  document.getElementById('change-recovery-btn').addEventListener('click',async function(){
+    var rk=document.getElementById('recovery-key-setting').value.trim();
+    if(!rk){alert('Please enter a recovery key.');return;}
+    await updateCompanyField('recovery_key',rk);
+    toast('Recovery key updated');
+  });
+  document.getElementById('delete-co-btn').addEventListener('click',async function(){
+    if(!confirm('Delete "'+currentCompany.name+'" and ALL its data? This cannot be undone.'))return;
+    if(!confirm('Are you absolutely sure? All employees and leave records will be permanently deleted.'))return;
+    try{
+      await sbDelete('companies',{id:currentCompany.id});
+      companies=companies.filter(function(c){return c.id!==currentCompany.id;});
+      currentCompany=null;employees=[];leaveTypes=[];holidays=[];leaveRecords=[];
+      var sel=document.getElementById('co-select');
+      sel.innerHTML=companies.map(function(c){return'<option value="'+c.id+'">'+c.name+'</option>';}).join('');
+      showScreen('login');showLoginStep(companies.length?'select':'new');
+      toast('Company deleted');
+    }catch(e){alert('Error: '+e.message);}
+  });
+});
+</script>
+</body>
+</html>
