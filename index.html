@@ -1732,7 +1732,7 @@ function showRequestLeaveModal(empId, empName, mgr1, mgr2){
       var lt=leaveTypes.find(function(l){return l.id===ltId;})||{name:'Leave'};
 
       // Build mailto to both managers
-      var recipients=[mgr1,mgr2].filter(Boolean).join(',');
+      var recipients=[mgr1,mgr2].filter(Boolean).join(';');
       var subject='Leave Request \u2014 '+empName;
       var body='Hi,\n\n'
         +'This confirms my leave request:\n\n'
